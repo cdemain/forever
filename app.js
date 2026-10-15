@@ -25,14 +25,14 @@ const ROLE_CLASSES = {
 
 const PROF_SUGGESTIONS = {
   Hunter: ["Skinning", "Leatherworking"],
-  Mage: ["Herbalism", "Alchemy"],
-  Warlock: ["Herbalism", "Alchemy"],
+  Mage: ["Herbalism", "Tailoring"],
+  Warlock: ["Herbalism", "Tailoring"],
   Rogue: ["Skinning", "Leatherworking"],
   Warrior: ["Mining", "Blacksmithing"],
   Paladin: ["Mining", "Blacksmithing"],
   Druid: ["Herbalism", "Alchemy"],
-  Priest: ["Herbalism", "Alchemy"],
-  Shaman: ["Mining", "Blacksmithing"]
+  Priest: ["Herbalism", "Tailoring"],
+  Shaman: ["Mining", "Engineering"]
 };
 
 const COMPLEMENTARY_ROLES = {
