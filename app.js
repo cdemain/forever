@@ -13,6 +13,7 @@ const RACE_CLASS_MATRIX = {
 
 const CRAFTING_PROFS = ["Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Leatherworking", "Tailoring"];
 const GATHERING_PROFS = ["Herbalism", "Mining", "Skinning"];
+const ALL_PROFS = [...CRAFTING_PROFS, ...GATHERING_PROFS];
 
 const ROLE_CLASSES = {
   Tank: ["Warrior", "Paladin", "Druid"],
@@ -92,6 +93,12 @@ function updateCharClassDropdown() {
   select.innerHTML = valid.map(c => `<option value="${c}">${c}</option>`).join("");
 }
 
+function populateProfDropdowns() {
+  const options = '<option value="">None</option>' + ALL_PROFS.map(p => `<option value="${p}">${p}</option>`).join("");
+  document.getElementById("char-prof1").innerHTML = options;
+  document.getElementById("char-prof2").innerHTML = options;
+}
+
 function showCharForm(idx = -1) {
   editingIndex = idx;
   const form = document.getElementById("char-form");
@@ -99,6 +106,7 @@ function showCharForm(idx = -1) {
   form.classList.remove("hidden");
 
   populateRaceDropdown();
+  populateProfDropdowns();
 
   if (idx >= 0) {
     const char = state.characters[idx];
@@ -108,12 +116,20 @@ function showCharForm(idx = -1) {
     updateCharClassDropdown();
     document.getElementById("char-class").value = char.class || "";
     document.getElementById("char-level").value = char.level || 1;
-    document.getElementById("char-role").value = char.role || "Main";
+    document.getElementById("char-main").checked = (char.role || "").toLowerCase() === "main";
+    document.getElementById("char-prof1").value = char.prof1 || "";
+    document.getElementById("char-prof1-level").value = char.prof1Level || 0;
+    document.getElementById("char-prof2").value = char.prof2 || "";
+    document.getElementById("char-prof2-level").value = char.prof2Level || 0;
   } else {
     title.textContent = "Add Character";
     document.getElementById("char-name").value = "";
     document.getElementById("char-level").value = 1;
-    document.getElementById("char-role").value = "Main";
+    document.getElementById("char-main").checked = false;
+    document.getElementById("char-prof1").value = "";
+    document.getElementById("char-prof1-level").value = 0;
+    document.getElementById("char-prof2").value = "";
+    document.getElementById("char-prof2-level").value = 0;
     if (state.preferredClass) {
       const raceSelect = document.getElementById("char-race");
       for (const opt of raceSelect.options) {
@@ -146,6 +162,7 @@ function renderRoster() {
   state.characters.forEach((char, idx) => {
     const div = document.createElement("div");
     div.className = "char-card";
+    const roleLabel = (char.role || "").toLowerCase() === "main" ? "Main" : "";
     div.innerHTML = `
       <strong>${char.name || "Unnamed"}</strong>
       — ${char.race || "?"} ${char.class || "?"} (Lvl ${char.level || 1})
@@ -153,7 +170,7 @@ function renderRoster() {
       <div class="muted small">
         Start: ${getStartingArea(char.race)}<br>
         Profs: ${char.prof1 || "—"} ${char.prof1Level || ""} / ${char.prof2 || "—"} ${char.prof2Level || ""}
-        ${char.role ? `<br>Role: ${char.role}` : ""}
+        ${roleLabel ? `<br>Role: ${roleLabel}` : ""}
       </div>
       <div class="actions">
         <button data-edit="${idx}">Edit</button>
@@ -239,7 +256,7 @@ function getRecommendations() {
   }
 
   if (state.characters.length > 0) {
-    const main = state.characters.find(c => (c.role || "").toLowerCase().includes("main")) || state.characters[0];
+    const main = state.characters.find(c => (c.role || "").toLowerCase() === "main") || state.characters[0];
     lines.push(`<strong>Primary character:</strong> ${main.name || "Unnamed"} (${main.race} ${main.class}, lvl ${main.level})`);
     lines.push(`Starting area: ${getStartingArea(main.race)}`);
   }
@@ -252,8 +269,19 @@ function getRecommendations() {
   const covered = getCoveredCrafting();
   const missing = CRAFTING_PROFS.filter(p => !covered.has(p));
   lines.push(`<strong>Crafting coverage:</strong> ${covered.size}/6`);
-  if (missing.length) lines.push(`Still need: ${missing.join(", ")}`);
-  else lines.push("All six crafting professions covered.");
+  if (missing.length) {
+    lines.push(`Still need: ${missing.join(", ")}`);
+    lines.push(`Suggestion: put ${missing[0]} on your next alt.`);
+  } else {
+    lines.push("All six crafting professions covered.");
+  }
+
+  if (state.duoMode && state.duoPartner?.gathering) {
+    const userGathers = state.characters.flatMap(c => [c.prof1, c.prof2]).filter(p => GATHERING_PROFS.includes(p));
+    if (userGathers.includes(state.duoPartner.gathering)) {
+      lines.push(`<span class="warning">Your characters share ${state.duoPartner.gathering} with your partner. Pick a different gathering profession.</span>`);
+    }
+  }
 
   if (state.characters.some(c => c.level >= 20)) {
     lines.push("Character at or above 20. Consider parking in an inn for rested XP and rotating an alt.");
@@ -327,7 +355,11 @@ function bindEvents() {
     const race = document.getElementById("char-race").value;
     const cls = document.getElementById("char-class").value;
     const level = parseInt(document.getElementById("char-level").value, 10) || 1;
-    const role = document.getElementById("char-role").value;
+    const isMain = document.getElementById("char-main").checked;
+    const prof1 = document.getElementById("char-prof1").value;
+    const prof1Level = parseInt(document.getElementById("char-prof1-level").value, 10) || 0;
+    const prof2 = document.getElementById("char-prof2").value;
+    const prof2Level = parseInt(document.getElementById("char-prof2-level").value, 10) || 0;
 
     if (!name) {
       alert("Please enter a name.");
@@ -340,11 +372,11 @@ function bindEvents() {
       class: cls,
       level,
       faction: RACE_CLASS_MATRIX[race].faction,
-      role,
-      prof1: "",
-      prof1Level: 0,
-      prof2: "",
-      prof2Level: 0
+      role: isMain ? "Main" : "",
+      prof1,
+      prof1Level,
+      prof2,
+      prof2Level
     };
 
     if (editingIndex >= 0) {

@@ -100,11 +100,25 @@
         <label for="char-level">Level</label>
         <input type="number" id="char-level" min="1" max="60" value="1">
 
-        <label for="char-role">Role</label>
-        <select id="char-role">
-          <option>Main</option>
-          <option>Alt</option>
+        <label class="checkbox-label">
+          <input type="checkbox" id="char-main"> Main
+        </label>
+
+        <label for="char-prof1">Profession 1</label>
+        <select id="char-prof1">
+          <option value="">None</option>
         </select>
+
+        <label for="char-prof1-level">Skill</label>
+        <input type="number" id="char-prof1-level" min="0" max="300" value="0">
+
+        <label for="char-prof2">Profession 2</label>
+        <select id="char-prof2">
+          <option value="">None</option>
+        </select>
+
+        <label for="char-prof2-level">Skill</label>
+        <input type="number" id="char-prof2-level" min="0" max="300" value="0">
 
         <div class="actions">
           <button id="save-char">Save</button>
