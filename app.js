@@ -51,7 +51,7 @@ let state = {
   playstyle: "",
   preferredClass: "",
   characters: [],
-  duoPartner: null
+  duoPairs: {}
 };
 
 let editingIndex = -1;
@@ -262,28 +262,66 @@ function renderRoster() {
   });
 }
 
-function renderDuoRecommendations() {
-  const container = document.getElementById("duo-recommendations");
+function renderDuoPairs() {
+  const container = document.getElementById("duo-pairs");
   if (!container) return;
   if (!state.duoMode || state.characters.length === 0) {
-    container.innerHTML = "<p class='muted'>Add characters to see per-character duo recommendations.</p>";
+    container.innerHTML = "<p class='muted'>Add characters to set partner halves of each duo set.</p>";
     return;
   }
 
   let html = "";
-  state.characters.forEach(char => {
+  state.characters.forEach((char, idx) => {
+    const pair = state.duoPairs[char.name || idx] || {};
     const recs = getComplementaryRecommendations(char);
-    html += `<div class="char-card"><strong>${char.name || "Unnamed"} (${char.class})</strong><br>`;
-    if (recs.length === 0) {
-      html += `<span class="muted">No strong complementary matches found for shared start zone.</span>`;
-    } else {
-      recs.forEach(r => {
-        html += `<div class="muted small">${r.role}: ${r.race} ${r.class} — ${r.gathering} / ${r.crafting || "crafting"} (starts ${r.start})</div>`;
-      });
-    }
-    html += `</div>`;
+    const raceOptions = getRacesForFaction(char.faction).map(r => `<option value="${r}" ${pair.race === r ? "selected" : ""}>${r}</option>`).join("");
+    const classOptions = (ROLE_CLASSES[pair.role] || ROLE_CLASSES["No Preference"]).map(c => `<option value="${c}" ${pair.class === c ? "selected" : ""}>${c}</option>`).join("");
+
+    html += `
+      <div class="char-card">
+        <strong>Your ${char.name || "character"} (${char.class})</strong>
+        <div class="muted small">Partner half of this set:</div>
+        <div class="form-fields">
+          <div>
+            <label>Partner Name</label>
+            <input type="text" data-pair-name="${idx}" value="${pair.name || ""}" placeholder="Partner name">
+          </div>
+          <div>
+            <label>Race</label>
+            <select data-pair-race="${idx}">${raceOptions}</select>
+          </div>
+          <div>
+            <label>Class</label>
+            <select data-pair-class="${idx}">${classOptions}</select>
+          </div>
+          <div>
+            <label>Gathering</label>
+            <select data-pair-gather="${idx}">
+              <option value="">None</option>
+              ${GATHERING_PROFS.map(g => `<option value="${g}" ${pair.gathering === g ? "selected" : ""}>${g}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <div class="muted small">Suggestions: ${recs.map(r => `${r.race} ${r.class}`).join(", ") || "none"}</div>
+      </div>
+    `;
   });
   container.innerHTML = html;
+
+  container.querySelectorAll("input, select").forEach(el => {
+    el.onchange = el.oninput = () => {
+      const idx = el.dataset.pairName || el.dataset.pairRace || el.dataset.pairClass || el.dataset.pairGather;
+      if (idx === undefined) return;
+      const char = state.characters[idx];
+      const key = char.name || idx;
+      if (!state.duoPairs[key]) state.duoPairs[key] = {};
+      if (el.dataset.pairName) state.duoPairs[key].name = el.value;
+      if (el.dataset.pairRace) state.duoPairs[key].race = el.value;
+      if (el.dataset.pairClass) state.duoPairs[key].class = el.value;
+      if (el.dataset.pairGather) state.duoPairs[key].gathering = el.value;
+      saveState();
+    };
+  });
 }
 
 function getCoveredCrafting() {
@@ -318,7 +356,7 @@ function getRecommendations() {
   }
 
   if (state.duoMode) {
-    lines.push(`<strong>Duo mode:</strong> Recommendations are generated per character for complementary role, shared starting zone, and non-overlapping gathering.`);
+    lines.push(`<strong>Duo mode:</strong> Set the partner half of each duo set below. Overlap only matters inside a set.`);
   }
 
   const covered = getCoveredCrafting();
@@ -369,7 +407,7 @@ function renderAll() {
   renderRoster();
   const duoSection = document.getElementById("duo-section");
   if (duoSection) duoSection.classList.toggle("hidden", !state.duoMode);
-  renderDuoRecommendations();
+  renderDuoPairs();
   renderRecommendations();
 }
 
@@ -453,7 +491,7 @@ function bindEvents() {
   if (resetBtn) resetBtn.onclick = () => {
     if (confirm("Reset all local data?")) {
       localStorage.removeItem(STORAGE_KEY);
-      state = { duoMode: false, faction: "", playstyle: "", preferredClass: "", characters: [], duoPartner: null };
+      state = { duoMode: false, faction: "", playstyle: "", preferredClass: "", characters: [], duoPairs: {} };
       hideCharForm();
       renderAll();
     }
@@ -469,6 +507,7 @@ function bindEvents() {
         gathering: getGathering(c),
         start: getStartingArea(c.race)
       })),
+      duoPairs: state.duoPairs,
       recommendations: state.characters.map(c => ({
         for: c.name || c.class,
         partners: getComplementaryRecommendations(c)
@@ -487,12 +526,16 @@ function bindEvents() {
     if (!input) return;
     try {
       const data = JSON.parse(input.value);
-      if (data.myCharacters) {
-        state.duoPartner = data;
+      if (data.duoPairs) state.duoPairs = data.duoPairs;
+      else if (data.myCharacters) {
+        state.duoPairs = {};
+        data.myCharacters.forEach((c, i) => {
+          state.duoPairs[c.name || i] = { name: c.name, race: c.race, class: c.class, gathering: c.gathering };
+        });
       }
       saveState();
       renderAll();
-      alert("Imported. Recommendations for your characters are shown above.");
+      alert("Imported partner data.");
     } catch (e) {
       alert("Invalid JSON.");
     }
