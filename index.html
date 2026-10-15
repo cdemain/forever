@@ -3,78 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WoW Forever Legacy Plan</title>
-  <style>
-    :root {
-      --bg: #1a1a2e;
-      --card: #16213e;
-      --accent: #e94560;
-      --gold: #f4d03f;
-      --text: #eee;
-      --muted: #aaa;
-    }
-    * { box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 20px;
-      line-height: 1.5;
-    }
-    h1, h2, h3 { color: var(--gold); }
-    .container { max-width: 1100px; margin: 0 auto; }
-    .card {
-      background: var(--card);
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 20px;
-      border: 1px solid #0f3460;
-    }
-    label { display: block; margin: 10px 0 4px; font-weight: 600; }
-    input, select, button, textarea {
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid #444;
-      background: #0f3460;
-      color: var(--text);
-      font-size: 14px;
-    }
-    button {
-      background: var(--accent);
-      border: none;
-      cursor: pointer;
-      font-weight: 600;
-      margin: 5px 5px 5px 0;
-    }
-    button:hover { opacity: 0.9; }
-    button.secondary { background: #0f3460; }
-    .row { display: flex; gap: 15px; flex-wrap: wrap; align-items: end; }
-    .char-card {
-      background: #0f3460;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 10px;
-    }
-    .badge { background: var(--gold); color: #000; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
-    .new-combo { color: #4ade80; }
-    .warning { color: #fbbf24; }
-    a { color: var(--gold); }
-    .hidden { display: none; }
-    #recommendations ul { margin: 8px 0; padding-left: 20px; }
-  </style>
+  <title>WoW Forever Legacy Optimization Plan</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="container">
-    <h1>WoW Forever Legacy Plan</h1>
-    <p>Comfort-first alt army inspired by Ceedsy’s Legacy Points blueprint. Works for solo or duo. All data stays in your browser.</p>
+    <p class="eyebrow">WORLD OF WARCRAFT: FOREVER</p>
+    <h1>Legacy Optimization Plan</h1>
+    <p class="lede">Earn Legacy Points from professions and class levels, on classes you already like. Save the classes you are less comfortable with for later, when you are more familiar with the game.</p>
+
+    <div class="points-row">
+      <div class="stat">
+        <div class="label">Profession points</div>
+        <div class="value">18</div>
+      </div>
+      <div class="stat">
+        <div class="label">Crafting professions</div>
+        <div class="value">6</div>
+      </div>
+      <div class="stat">
+        <div class="label">Spend cap at launch</div>
+        <div class="value">16</div>
+      </div>
+      <div class="stat">
+        <div class="label">Class milestones</div>
+        <div class="value">25 / 45 / 60</div>
+      </div>
+    </div>
+
+    <hr>
+
+    <h2>How this plan works</h2>
+    <div class="plan-row">
+      <div class="plan-card">
+        <div class="num">01</div>
+        <strong>Start with a class you like</strong>
+        <p>Pick the class you will actually play. The suggestion below follows that choice.</p>
+      </div>
+      <div class="plan-card">
+        <div class="num">02</div>
+        <strong>Learn the six crafting professions</strong>
+        <p>Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking, and Tailoring each give a point at skill 150, 225, and 300. Herbalism, Mining, and Skinning do not.</p>
+      </div>
+      <div class="plan-card">
+        <div class="num">03</div>
+        <strong>Do not gather the same thing</strong>
+        <p>Stay the same faction if you want to mail items or play together. Give the two characters you play at the same time different gathering skills.</p>
+      </div>
+    </div>
 
     <div class="card">
-      <label>
+      <label class="checkbox-label">
         <input type="checkbox" id="duo-mode"> I play with a duo partner
       </label>
       <div id="playstyle-section">
-        <label>What’s your preferred playstyle / class?</label>
+        <label for="playstyle">What’s your preferred playstyle / class?</label>
         <select id="playstyle">
           <option value="">-- Select to get started --</option>
           <option>Hunter</option>
@@ -104,9 +87,9 @@
       <p>Resources cannot be mailed cross-faction. Match factions for easy trading.</p>
       <div id="duo-partner-fields"></div>
       <button id="export-duo">Export Minimal Partner Data</button>
-      <textarea id="export-output" rows="4" placeholder="Export appears here..." readonly style="width:100%;margin-top:10px;"></textarea>
-      <label>Import partner data:</label>
-      <textarea id="import-input" rows="3" placeholder='Paste JSON here' style="width:100%;"></textarea>
+      <textarea id="export-output" rows="4" placeholder="Export appears here..." readonly></textarea>
+      <label for="import-input">Import partner data:</label>
+      <textarea id="import-input" rows="3" placeholder="Paste JSON here"></textarea>
       <button id="import-duo">Import</button>
     </div>
 
@@ -117,13 +100,13 @@
 
     <div class="card">
       <h2>Optional: Connect Battle.net</h2>
-      <p class="warning">Advanced. Requires your own Client ID. Follow <a href="https://community.developer.battle.net/documentation/guides/using-oauth" target="_blank">Blizzard’s OAuth guide</a> and prefer maintained libraries. Tokens stay in localStorage only. Forever character data may not yet be available.</p>
-      <button id="connect-bnet" class="secondary">Connect Battle.net (stub)</button>
+      <p class="warning">Advanced. Requires your own Client ID. Follow <a href="https://community.developer.battle.net/documentation/guides/using-oauth" target="_blank" rel="noopener">Blizzard’s OAuth guide</a> and prefer maintained libraries. Tokens stay in localStorage only. Forever character data may not yet be available.</p>
+      <button id="connect-bnet" class="secondary">Connect Battle.net</button>
       <p id="bnet-status">Not connected.</p>
     </div>
 
-    <footer style="margin-top:40px;color:var(--muted);font-size:13px;">
-      Data based on current Forever beta. Links go to Wowhead Forever. All storage is local.
+    <footer>
+      Data based on current Forever beta. All storage is local.
     </footer>
   </div>
 

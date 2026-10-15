@@ -1,109 +1,39 @@
-// WoW Forever Legacy Plan
-// Client-side only. localStorage. Solo or Duo.
-// Race/class matrix matches current Forever beta (Undead Paladin valid).
-
 const RACE_CLASS_MATRIX = {
-  Human: {
-    faction: "Alliance",
-    classes: ["Warrior", "Hunter", "Mage", "Rogue", "Priest", "Warlock", "Paladin"],
-    start: "Elwynn Forest"
-  },
-  Dwarf: {
-    faction: "Alliance",
-    classes: ["Warrior", "Hunter", "Rogue", "Priest", "Paladin", "Shaman"],
-    start: "Dun Morogh"
-  },
-  "Night Elf": {
-    faction: "Alliance",
-    classes: ["Warrior", "Hunter", "Rogue", "Priest", "Druid"],
-    start: "Teldrassil"
-  },
-  Gnome: {
-    faction: "Alliance",
-    classes: ["Warrior", "Mage", "Rogue", "Priest", "Warlock"],
-    start: "Dun Morogh"
-  },
-  "Skyborne (High Order)": {
-    faction: "Alliance",
-    classes: ["Warrior", "Hunter", "Mage", "Rogue", "Druid"],
-    start: "Zephras Isle"
-  },
-  Orc: {
-    faction: "Horde",
-    classes: ["Warrior", "Hunter", "Mage", "Rogue", "Shaman", "Warlock"],
-    start: "Durotar"
-  },
-  Undead: {
-    faction: "Horde",
-    classes: ["Warrior", "Mage", "Paladin", "Priest", "Rogue", "Warlock"],
-    start: "Tirisfal Glades"
-  },
-  Tauren: {
-    faction: "Horde",
-    classes: ["Warrior", "Hunter", "Shaman", "Druid"],
-    start: "Mulgore"
-  },
-  Troll: {
-    faction: "Horde",
-    classes: ["Warrior", "Hunter", "Mage", "Rogue", "Priest", "Shaman", "Warlock"],
-    start: "Durotar"
-  },
-  "Skyborne (Windshaper)": {
-    faction: "Horde",
-    classes: ["Warrior", "Hunter", "Rogue", "Druid", "Shaman"],
-    start: "Zephras Isle"
-  }
+  Human: { faction: "Alliance", classes: ["Warrior", "Hunter", "Mage", "Rogue", "Priest", "Warlock", "Paladin"], start: "Elwynn Forest" },
+  Dwarf: { faction: "Alliance", classes: ["Warrior", "Hunter", "Rogue", "Priest", "Paladin", "Shaman"], start: "Dun Morogh" },
+  "Night Elf": { faction: "Alliance", classes: ["Warrior", "Hunter", "Rogue", "Priest", "Druid"], start: "Teldrassil" },
+  Gnome: { faction: "Alliance", classes: ["Warrior", "Mage", "Rogue", "Priest", "Warlock"], start: "Dun Morogh" },
+  "Skyborne (High Order)": { faction: "Alliance", classes: ["Warrior", "Hunter", "Mage", "Rogue", "Druid"], start: "Zephras Isle" },
+  Orc: { faction: "Horde", classes: ["Warrior", "Hunter", "Mage", "Rogue", "Shaman", "Warlock"], start: "Durotar" },
+  Undead: { faction: "Horde", classes: ["Warrior", "Mage", "Paladin", "Priest", "Rogue", "Warlock"], start: "Tirisfal Glades" },
+  Tauren: { faction: "Horde", classes: ["Warrior", "Hunter", "Shaman", "Druid"], start: "Mulgore" },
+  Troll: { faction: "Horde", classes: ["Warrior", "Hunter", "Mage", "Rogue", "Priest", "Shaman", "Warlock"], start: "Durotar" },
+  "Skyborne (Windshaper)": { faction: "Horde", classes: ["Warrior", "Hunter", "Rogue", "Druid", "Shaman"], start: "Zephras Isle" }
 };
 
-const NEW_COMBOS = [
-  "Human Hunter",
-  "Dwarf Shaman",
-  "Gnome Priest",
-  "Orc Mage",
-  "Troll Warlock",
-  "Undead Paladin"
-];
-
-const CRAFTING_PROFS = [
-  "Alchemy",
-  "Blacksmithing",
-  "Enchanting",
-  "Engineering",
-  "Leatherworking",
-  "Tailoring"
-];
-
+const NEW_COMBOS = ["Human Hunter", "Dwarf Shaman", "Gnome Priest", "Orc Mage", "Troll Warlock", "Undead Paladin"];
+const CRAFTING_PROFS = ["Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Leatherworking", "Tailoring"];
 const GATHERING_PROFS = ["Herbalism", "Mining", "Skinning"];
-
-const ALL_CLASSES = [
-  "Warrior", "Paladin", "Hunter", "Rogue",
-  "Priest", "Shaman", "Mage", "Warlock", "Druid"
-];
-
-const STORAGE_KEY = "wowForeverLegacyPlan_v2";
+const ALL_CLASSES = ["Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid"];
+const STORAGE_KEY = "wowForeverLegacyPlan";
 
 let state = {
   duoMode: false,
   playstyle: "",
   characters: [],
-  duoPartner: null,
-  lastUpdated: null
+  duoPartner: null
 };
 
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      state = { ...state, ...parsed };
-    }
+    if (raw) state = { ...state, ...JSON.parse(raw) };
   } catch (e) {
-    console.warn("Failed to load state", e);
+    console.warn("Could not load saved state", e);
   }
 }
 
 function saveState() {
-  state.lastUpdated = Date.now();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -125,30 +55,24 @@ function renderRoster() {
   container.innerHTML = "";
 
   if (state.characters.length === 0) {
-    container.innerHTML = "<p style='color:#aaa;'>No characters yet. Add one or pick a playstyle above.</p>";
+    container.innerHTML = "<p class='muted'>No characters yet. Add one or select a playstyle above.</p>";
     return;
   }
 
   state.characters.forEach((char, idx) => {
     const div = document.createElement("div");
     div.className = "char-card";
-    const newBadge = isNewCombo(char.race, char.class)
-      ? `<span class="badge new-combo">New</span>`
-      : "";
+    const newBadge = isNewCombo(char.race, char.class) ? '<span class="badge new">New</span>' : "";
     div.innerHTML = `
-      <strong>${char.name || "Unnamed"}</strong>
-      ${newBadge}
-      — ${char.race || "?"} ${char.class || "?"}
-      (Lvl ${char.level || 1})
+      <strong>${char.name || "Unnamed"}</strong> ${newBadge}
+      — ${char.race || "?"} ${char.class || "?"} (Lvl ${char.level || 1})
       <span class="badge">${char.faction || "?"}</span>
-      <div style="font-size:13px;color:#aaa;margin-top:4px;">
+      <div class="muted small">
         Start: ${getStartingArea(char.race)}<br>
-        Profs: ${char.prof1 || "—"} ${char.prof1Level || ""} /
-               ${char.prof2 || "—"} ${char.prof2Level || ""}
+        Profs: ${char.prof1 || "—"} ${char.prof1Level || ""} / ${char.prof2 || "—"} ${char.prof2Level || ""}
         ${char.role ? `<br>Role: ${char.role}` : ""}
-        ${char.rested ? `<br>Rested: ${char.rested}` : ""}
       </div>
-      <div style="margin-top:8px;">
+      <div class="actions">
         <button data-edit="${idx}">Edit</button>
         <button data-remove="${idx}" class="secondary">Remove</button>
       </div>
@@ -172,24 +96,14 @@ function renderRoster() {
 
 function editCharacter(idx) {
   const existing = idx >= 0 ? { ...state.characters[idx] } : {
-    name: "",
-    race: "Human",
-    class: "Hunter",
-    level: 1,
-    faction: "Alliance",
-    prof1: "",
-    prof1Level: 0,
-    prof2: "",
-    prof2Level: 0,
-    role: "Main",
-    rested: ""
+    name: "", race: "Human", class: "Hunter", level: 1,
+    faction: "Alliance", prof1: "", prof1Level: 0, prof2: "", prof2Level: 0, role: "Main"
   };
 
   const name = prompt("Character name:", existing.name);
   if (name === null) return;
 
-  const raceList = Object.keys(RACE_CLASS_MATRIX).join(", ");
-  const race = prompt(`Race:\n${raceList}`, existing.race);
+  const race = prompt("Race:\n" + Object.keys(RACE_CLASS_MATRIX).join(", "), existing.race);
   if (!race || !RACE_CLASS_MATRIX[race]) {
     alert("Invalid race.");
     return;
@@ -203,8 +117,7 @@ function editCharacter(idx) {
   }
 
   const level = parseInt(prompt("Level:", existing.level) || "1", 10) || 1;
-  const role = prompt("Role (Main / Alt / etc.):", existing.role || "Main");
-  const rested = prompt("Rested XP note (optional):", existing.rested || "");
+  const role = prompt("Role (Main / Alt / etc.):", existing.role || "Main") || "Main";
 
   const updated = {
     ...existing,
@@ -213,15 +126,12 @@ function editCharacter(idx) {
     class: cls,
     level,
     faction: RACE_CLASS_MATRIX[race].faction,
-    role: role || "Main",
-    rested
+    role
   };
 
-  if (idx >= 0) {
-    state.characters[idx] = updated;
-  } else {
-    state.characters.push(updated);
-  }
+  if (idx >= 0) state.characters[idx] = updated;
+  else state.characters.push(updated);
+
   saveState();
   renderAll();
 }
@@ -235,32 +145,27 @@ function renderDuo() {
   const fields = document.getElementById("duo-partner-fields");
   if (!fields) return;
 
-  const p = state.duoPartner || {
-    class: "",
-    gathering: "",
-    faction: "Alliance",
-    race: ""
-  };
+  const p = state.duoPartner || { class: "", gathering: "", faction: "Alliance" };
 
   fields.innerHTML = `
-    <label>Partner preferred class</label>
+    <label for="partner-class">Partner preferred class</label>
     <select id="partner-class">
       <option value="">Select</option>
       ${ALL_CLASSES.map(c => `<option value="${c}" ${p.class === c ? "selected" : ""}>${c}</option>`).join("")}
     </select>
-    <label>Partner gathering profession</label>
+    <label for="partner-gather">Partner gathering profession</label>
     <select id="partner-gather">
       <option value="">Select</option>
       ${GATHERING_PROFS.map(g => `<option value="${g}" ${p.gathering === g ? "selected" : ""}>${g}</option>`).join("")}
     </select>
-    <label>Partner faction</label>
+    <label for="partner-faction">Partner faction</label>
     <select id="partner-faction">
       <option value="Alliance" ${p.faction === "Alliance" ? "selected" : ""}>Alliance</option>
       <option value="Horde" ${p.faction === "Horde" ? "selected" : ""}>Horde</option>
     </select>
   `;
 
-  const updatePartner = () => {
+  const update = () => {
     state.duoPartner = {
       class: document.getElementById("partner-class").value,
       gathering: document.getElementById("partner-gather").value,
@@ -272,15 +177,15 @@ function renderDuo() {
 
   ["partner-class", "partner-gather", "partner-faction"].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.onchange = updatePartner;
+    if (el) el.onchange = update;
   });
 }
 
 function getCoveredCrafting() {
   const covered = new Set();
   state.characters.forEach(c => {
-    if (c.prof1 && CRAFTING_PROFS.includes(c.prof1)) covered.add(c.prof1);
-    if (c.prof2 && CRAFTING_PROFS.includes(c.prof2)) covered.add(c.prof2);
+    if (CRAFTING_PROFS.includes(c.prof1)) covered.add(c.prof1);
+    if (CRAFTING_PROFS.includes(c.prof2)) covered.add(c.prof2);
   });
   return covered;
 }
@@ -288,7 +193,6 @@ function getCoveredCrafting() {
 function getRecommendations() {
   const lines = [];
   const playstyle = state.playstyle || state.characters[0]?.class || "Flexible";
-
   lines.push(`<strong>Preferred style:</strong> ${playstyle}`);
 
   if (state.characters.length > 0) {
@@ -299,36 +203,26 @@ function getRecommendations() {
 
   if (state.duoMode && state.duoPartner) {
     lines.push(`<strong>Duo partner:</strong> ${state.duoPartner.class || "?"} (${state.duoPartner.faction || "?"}) — gathering: ${state.duoPartner.gathering || "none"}`);
-
     const userFaction = state.characters[0]?.faction || "Alliance";
     if (state.duoPartner.faction && userFaction !== state.duoPartner.faction) {
       lines.push(`<span class="warning">Different factions — you cannot mail resources to each other.</span>`);
     }
-
-    // Starting area synergy
-    const userStarts = state.characters.map(c => getStartingArea(c.race));
-    lines.push(`<strong>Starting area tip:</strong> Prefer shared zones (Elwynn/Dun Morogh for Alliance starters, Durotar for Horde, Zephras Isle for Skyborne).`);
+    lines.push(`<strong>Starting area tip:</strong> Prefer shared zones (Elwynn/Dun Morogh for Alliance, Durotar for Horde, Zephras Isle for Skyborne).`);
   }
 
   const covered = getCoveredCrafting();
   const missing = CRAFTING_PROFS.filter(p => !covered.has(p));
   lines.push(`<strong>Crafting coverage:</strong> ${covered.size}/6`);
-  if (missing.length) {
-    lines.push(`Still need: ${missing.join(", ")}`);
-  } else {
-    lines.push(`All six crafting professions covered.`);
-  }
+  if (missing.length) lines.push(`Still need: ${missing.join(", ")}`);
+  else lines.push("All six crafting professions covered.");
 
-  const highLevel = state.characters.filter(c => c.level >= 20);
-  if (highLevel.length > 0) {
-    lines.push(`Character(s) at or above 20. Consider parking in an inn for rested XP and rotating an alt.`);
+  if (state.characters.some(c => c.level >= 20)) {
+    lines.push("Character at or above 20. Consider parking in an inn for rested XP and rotating an alt.");
   }
 
   let priority = "Cover remaining crafting professions, invest in Working Overtime, and rotate rested XP by logging out in inns.";
-  if (state.duoMode) {
-    priority += " Keep gathering professions non-overlapping with your partner.";
-  }
-  lines.push(`<strong>Next priority (Ceedsy-inspired):</strong> ${priority}`);
+  if (state.duoMode) priority += " Keep gathering professions non-overlapping with your partner.";
+  lines.push(`<strong>Next priority:</strong> ${priority}`);
 
   return lines.map(l => `<li>${l}</li>`).join("");
 }
@@ -357,94 +251,59 @@ function renderAll() {
 
 function bindEvents() {
   const duoMode = document.getElementById("duo-mode");
-  if (duoMode) {
-    duoMode.onchange = (e) => {
-      state.duoMode = e.target.checked;
-      saveState();
-      renderAll();
-    };
-  }
+  if (duoMode) duoMode.onchange = e => { state.duoMode = e.target.checked; saveState(); renderAll(); };
 
   const playstyle = document.getElementById("playstyle");
-  if (playstyle) {
-    playstyle.onchange = (e) => {
-      state.playstyle = e.target.value;
-      saveState();
-      renderRecommendations();
-    };
-  }
+  if (playstyle) playstyle.onchange = e => { state.playstyle = e.target.value; saveState(); renderRecommendations(); };
 
   const addBtn = document.getElementById("add-char");
   if (addBtn) addBtn.onclick = () => editCharacter(-1);
 
   const resetBtn = document.getElementById("reset-all");
-  if (resetBtn) {
-    resetBtn.onclick = () => {
-      if (confirm("Reset all local data? This cannot be undone.")) {
-        localStorage.removeItem(STORAGE_KEY);
-        state = { duoMode: false, playstyle: "", characters: [], duoPartner: null, lastUpdated: null };
-        renderAll();
-      }
-    };
-  }
+  if (resetBtn) resetBtn.onclick = () => {
+    if (confirm("Reset all local data?")) {
+      localStorage.removeItem(STORAGE_KEY);
+      state = { duoMode: false, playstyle: "", characters: [], duoPartner: null };
+      renderAll();
+    }
+  };
 
   const exportBtn = document.getElementById("export-duo");
-  if (exportBtn) {
-    exportBtn.onclick = () => {
-      const data = {
-        preferredClass: state.playstyle || state.characters[0]?.class || "",
-        gathering: state.characters.find(c => GATHERING_PROFS.includes(c.prof1))?.prof1 ||
-                   state.characters.find(c => GATHERING_PROFS.includes(c.prof2))?.prof2 || "",
-        faction: state.characters[0]?.faction || "Alliance",
-        race: state.characters[0]?.race || ""
-      };
-      const text = JSON.stringify(data, null, 2);
-      const out = document.getElementById("export-output");
-      if (out) out.value = text;
-      navigator.clipboard?.writeText(text).then(() => {
-        alert("Minimal partner data copied to clipboard.");
-      }).catch(() => {});
+  if (exportBtn) exportBtn.onclick = () => {
+    const data = {
+      preferredClass: state.playstyle || state.characters[0]?.class || "",
+      gathering: state.characters.find(c => GATHERING_PROFS.includes(c.prof1))?.prof1 ||
+                 state.characters.find(c => GATHERING_PROFS.includes(c.prof2))?.prof2 || "",
+      faction: state.characters[0]?.faction || "Alliance"
     };
-  }
+    const text = JSON.stringify(data, null, 2);
+    const out = document.getElementById("export-output");
+    if (out) out.value = text;
+    navigator.clipboard?.writeText(text);
+  };
 
   const importBtn = document.getElementById("import-duo");
-  if (importBtn) {
-    importBtn.onclick = () => {
-      const input = document.getElementById("import-input");
-      if (!input) return;
-      try {
-        const data = JSON.parse(input.value);
-        state.duoPartner = {
-          class: data.preferredClass || "",
-          gathering: data.gathering || "",
-          faction: data.faction || "Alliance"
-        };
-        saveState();
-        renderAll();
-        alert("Partner data imported.");
-      } catch (e) {
-        alert("Invalid JSON.");
-      }
-    };
-  }
+  if (importBtn) importBtn.onclick = () => {
+    const input = document.getElementById("import-input");
+    if (!input) return;
+    try {
+      const data = JSON.parse(input.value);
+      state.duoPartner = { class: data.preferredClass || "", gathering: data.gathering || "", faction: data.faction || "Alliance" };
+      saveState();
+      renderAll();
+    } catch (e) {
+      alert("Invalid JSON.");
+    }
+  };
 
   const bnetBtn = document.getElementById("connect-bnet");
-  if (bnetBtn) {
-    bnetBtn.onclick = () => {
-      alert(
-        "Battle.net OAuth requires a registered Client ID.\n\n" +
-        "Follow Blizzard’s official guide:\n" +
-        "https://community.developer.battle.net/documentation/guides/using-oauth\n\n" +
-        "Prefer maintained libraries. Implement Authorization Code + PKCE. " +
-        "Store tokens only in localStorage. Forever character data may not yet be available."
-      );
-      const status = document.getElementById("bnet-status");
-      if (status) status.textContent = "Stub only — not connected.";
-    };
-  }
+  if (bnetBtn) bnetBtn.onclick = () => {
+    alert("Battle.net OAuth requires a registered Client ID. Follow Blizzard’s official guide and prefer maintained libraries. Implement Authorization Code + PKCE. Store tokens only in localStorage.");
+    const status = document.getElementById("bnet-status");
+    if (status) status.textContent = "Not connected.";
+  };
 }
 
-// Init
 loadState();
 bindEvents();
 renderAll();
