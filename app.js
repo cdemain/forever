@@ -19,7 +19,7 @@ const ROLE_CLASSES = {
   "No Preference": ["Hunter", "Druid", "Paladin", "Warrior", "Mage", "Priest", "Shaman", "Warlock", "Rogue"],
   Tank: ["Warrior", "Paladin", "Druid"],
   "Melee DPS": ["Rogue", "Warrior", "Paladin", "Druid", "Shaman"],
-  "Ranged DPS": ["Hunter", "Mage", "Warlock", "Shaman", "Druid"],
+  "Ranged DPS": ["Hunter", "Mage", "Warlock", "Shaman", "Priest","Druid"],
   Healing: ["Priest", "Paladin", "Druid", "Shaman"]
 };
 
