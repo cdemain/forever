@@ -124,7 +124,15 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
 .actions button { margin-right: 6px; }
 
 label { display: block; margin: 12px 0 4px; font-weight: 600; }
-.checkbox-label { font-weight: normal; }
+.checkbox-label {
+  font-weight: normal;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+input[type="checkbox"] { width: auto; margin: 0; }
 
 input, select, button, textarea {
   padding: 8px 12px;
@@ -133,8 +141,9 @@ input, select, button, textarea {
   background: #111;
   color: var(--text);
   font-size: 14px;
-  width: 100%;
 }
+
+select { width: auto; min-width: 160px; }
 
 textarea { width: 100%; margin-top: 6px; }
 
@@ -169,4 +178,5 @@ footer {
 @media (max-width: 600px) {
   .points-row { grid-template-columns: 1fr; }
   .form-fields { grid-template-columns: 1fr; }
+  select { width: 100%; }
 }
