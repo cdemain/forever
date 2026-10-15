@@ -56,16 +56,28 @@
       <label class="checkbox-label">
         <input type="checkbox" id="duo-mode"> I play with a duo partner
       </label>
-      <div id="playstyle-section">
-        <label for="playstyle">Preferred role</label>
-        <select id="playstyle">
-          <option value="">-- Select to get started --</option>
-          <option>Tank</option>
-          <option>Melee DPS</option>
-          <option>Ranged DPS</option>
-          <option>Healing</option>
-        </select>
-      </div>
+
+      <label for="faction">Faction</label>
+      <select id="faction">
+        <option value="">-- Select faction --</option>
+        <option value="Alliance">Alliance</option>
+        <option value="Horde">Horde</option>
+        <option value="Both">Both (separate characters)</option>
+      </select>
+
+      <label for="playstyle">Preferred role</label>
+      <select id="playstyle">
+        <option value="">-- Select role --</option>
+        <option value="Tank">Tank</option>
+        <option value="Melee DPS">Melee DPS</option>
+        <option value="Ranged DPS">Ranged DPS</option>
+        <option value="Healing">Healing</option>
+      </select>
+
+      <label for="class-select">Preferred class</label>
+      <select id="class-select" disabled>
+        <option value="">Select a role first</option>
+      </select>
     </div>
 
     <div class="card">
@@ -77,7 +89,7 @@
 
     <div class="card hidden" id="duo-section">
       <h2>Duo Partner</h2>
-      <p>Resources cannot be mailed cross-faction. Match factions for easy trading.</p>
+      <p>Partner is assumed to be the same faction so you can mail and play together.</p>
       <div id="duo-partner-fields"></div>
       <button id="export-duo">Export Minimal Partner Data</button>
       <textarea id="export-output" rows="4" placeholder="Export appears here..." readonly></textarea>

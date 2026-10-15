@@ -13,20 +13,21 @@ const RACE_CLASS_MATRIX = {
 
 const CRAFTING_PROFS = ["Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Leatherworking", "Tailoring"];
 const GATHERING_PROFS = ["Herbalism", "Mining", "Skinning"];
-const ALL_CLASSES = ["Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid"];
 
 const ROLE_CLASSES = {
-  "Tank": ["Warrior", "Paladin", "Druid"],
-  "Melee DPS": ["Warrior", "Rogue", "Paladin", "Druid", "Shaman"],
-  "Ranged DPS": ["Hunter", "Mage", "Warlock", "Priest", "Shaman"],
-  "Healing": ["Priest", "Paladin", "Druid", "Shaman"]
+  Tank: ["Warrior", "Paladin", "Druid"],
+  "Melee DPS": ["Rogue", "Warrior", "Paladin", "Druid", "Shaman"],
+  "Ranged DPS": ["Hunter", "Mage", "Warlock", "Shaman", "Druid"],
+  Healing: ["Priest", "Paladin", "Druid", "Shaman"]
 };
 
 const STORAGE_KEY = "wowForeverLegacyPlan";
 
 let state = {
   duoMode: false,
+  faction: "",
   playstyle: "",
+  preferredClass: "",
   characters: [],
   duoPartner: null
 };
@@ -50,6 +51,29 @@ function getValidClasses(race) {
 
 function getStartingArea(race) {
   return RACE_CLASS_MATRIX[race]?.start || "Unknown";
+}
+
+function getRacesForFaction(faction) {
+  if (!faction || faction === "Both") return Object.keys(RACE_CLASS_MATRIX);
+  return Object.keys(RACE_CLASS_MATRIX).filter(r => RACE_CLASS_MATRIX[r].faction === faction);
+}
+
+function updateClassDropdown() {
+  const role = document.getElementById("playstyle").value;
+  const select = document.getElementById("class-select");
+  select.innerHTML = "";
+  if (!role || !ROLE_CLASSES[role]) {
+    select.disabled = true;
+    select.innerHTML = '<option value="">Select a role first</option>';
+    return;
+  }
+  select.disabled = false;
+  const classes = ROLE_CLASSES[role];
+  select.innerHTML = '<option value="">-- Select class --</option>' +
+    classes.map(c => `<option value="${c}">${c}</option>`).join("");
+  if (state.preferredClass && classes.includes(state.preferredClass)) {
+    select.value = state.preferredClass;
+  }
 }
 
 function renderRoster() {
@@ -98,28 +122,33 @@ function renderRoster() {
 
 function editCharacter(idx) {
   const existing = idx >= 0 ? { ...state.characters[idx] } : {
-    name: "", race: "Human", class: "Warrior", level: 1,
-    faction: "Alliance", prof1: "", prof1Level: 0, prof2: "", prof2Level: 0, role: "Main"
+    name: "", race: "", class: state.preferredClass || "", level: 1,
+    faction: state.faction === "Both" ? "Alliance" : (state.faction || "Alliance"),
+    prof1: "", prof1Level: 0, prof2: "", prof2Level: 0, role: "Main"
   };
 
   const name = prompt("Character name:", existing.name);
   if (name === null) return;
 
-  const race = prompt("Race:\n" + Object.keys(RACE_CLASS_MATRIX).join(", "), existing.race);
-  if (!race || !RACE_CLASS_MATRIX[race]) {
-    alert("Invalid race.");
+  const races = getRacesForFaction(state.faction);
+  const raceOptions = races.map(r => `<option value="${r}" ${r === existing.race ? "selected" : ""}>${r}</option>`).join("");
+  const raceSelect = document.createElement("select");
+  raceSelect.innerHTML = raceOptions;
+  const race = prompt("Race (select from list):\n" + races.join(", "), existing.race);
+  if (!race || !races.includes(race)) {
+    alert("Please choose a valid race for your faction.");
     return;
   }
 
   const valid = getValidClasses(race);
-  const cls = prompt(`Class for ${race}:\n${valid.join(", ")}`, existing.class);
+  const cls = prompt(`Class for ${race}:\n${valid.join(", ")}`, existing.class || state.preferredClass);
   if (!cls || !valid.includes(cls)) {
     alert("Invalid class for that race.");
     return;
   }
 
   const level = parseInt(prompt("Level:", existing.level) || "1", 10) || 1;
-  const role = prompt("Role (Main / Alt / etc.):", existing.role || "Main") || "Main";
+  const role = prompt("Role (Main / Alt):", existing.role || "Main") || "Main";
 
   const updated = {
     ...existing,
@@ -147,7 +176,8 @@ function renderDuo() {
   const fields = document.getElementById("duo-partner-fields");
   if (!fields) return;
 
-  const p = state.duoPartner || { class: "", gathering: "", faction: "Alliance" };
+  const p = state.duoPartner || { class: "", gathering: "", faction: state.faction || "Alliance" };
+  const faction = state.faction === "Both" ? "Alliance" : (state.faction || "Alliance");
 
   fields.innerHTML = `
     <label for="partner-class">Partner preferred class</label>
@@ -160,24 +190,19 @@ function renderDuo() {
       <option value="">Select</option>
       ${GATHERING_PROFS.map(g => `<option value="${g}" ${p.gathering === g ? "selected" : ""}>${g}</option>`).join("")}
     </select>
-    <label for="partner-faction">Partner faction</label>
-    <select id="partner-faction">
-      <option value="Alliance" ${p.faction === "Alliance" ? "selected" : ""}>Alliance</option>
-      <option value="Horde" ${p.faction === "Horde" ? "selected" : ""}>Horde</option>
-    </select>
   `;
 
   const update = () => {
     state.duoPartner = {
       class: document.getElementById("partner-class").value,
       gathering: document.getElementById("partner-gather").value,
-      faction: document.getElementById("partner-faction").value
+      faction
     };
     saveState();
     renderRecommendations();
   };
 
-  ["partner-class", "partner-gather", "partner-faction"].forEach(id => {
+  ["partner-class", "partner-gather"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.onchange = update;
   });
@@ -196,6 +221,8 @@ function getRecommendations() {
   const lines = [];
   const playstyle = state.playstyle || "any role";
   lines.push(`<strong>Preferred role:</strong> ${playstyle}`);
+  if (state.preferredClass) lines.push(`<strong>Preferred class:</strong> ${state.preferredClass}`);
+  if (state.faction) lines.push(`<strong>Faction:</strong> ${state.faction}`);
 
   if (state.playstyle && ROLE_CLASSES[state.playstyle]) {
     lines.push(`Suitable classes: ${ROLE_CLASSES[state.playstyle].join(", ")}`);
@@ -208,12 +235,8 @@ function getRecommendations() {
   }
 
   if (state.duoMode && state.duoPartner) {
-    lines.push(`<strong>Duo partner:</strong> ${state.duoPartner.class || "?"} (${state.duoPartner.faction || "?"}) — gathering: ${state.duoPartner.gathering || "none"}`);
-    const userFaction = state.characters[0]?.faction || "Alliance";
-    if (state.duoPartner.faction && userFaction !== state.duoPartner.faction) {
-      lines.push(`<span class="warning">Different factions — you cannot mail resources to each other.</span>`);
-    }
-    lines.push(`<strong>Starting area tip:</strong> Prefer shared zones (Elwynn/Dun Morogh for Alliance, Durotar for Horde, Zephras Isle for Skyborne).`);
+    lines.push(`<strong>Duo partner:</strong> ${state.duoPartner.class || "?"} — gathering: ${state.duoPartner.gathering || "none"}`);
+    lines.push(`<strong>Starting area tip:</strong> Prefer shared zones for the same faction.`);
   }
 
   const covered = getCoveredCrafting();
@@ -247,8 +270,15 @@ function renderAll() {
   const duoCheck = document.getElementById("duo-mode");
   if (duoCheck) duoCheck.checked = state.duoMode;
 
+  const factionSel = document.getElementById("faction");
+  if (factionSel) factionSel.value = state.faction || "";
+
   const playstyleSel = document.getElementById("playstyle");
   if (playstyleSel) playstyleSel.value = state.playstyle || "";
+
+  updateClassDropdown();
+  const classSel = document.getElementById("class-select");
+  if (classSel && state.preferredClass) classSel.value = state.preferredClass;
 
   renderRoster();
   renderDuo();
@@ -259,8 +289,24 @@ function bindEvents() {
   const duoMode = document.getElementById("duo-mode");
   if (duoMode) duoMode.onchange = e => { state.duoMode = e.target.checked; saveState(); renderAll(); };
 
+  const faction = document.getElementById("faction");
+  if (faction) faction.onchange = e => { state.faction = e.target.value; saveState(); renderAll(); };
+
   const playstyle = document.getElementById("playstyle");
-  if (playstyle) playstyle.onchange = e => { state.playstyle = e.target.value; saveState(); renderRecommendations(); };
+  if (playstyle) playstyle.onchange = e => {
+    state.playstyle = e.target.value;
+    state.preferredClass = "";
+    saveState();
+    updateClassDropdown();
+    renderRecommendations();
+  };
+
+  const classSelect = document.getElementById("class-select");
+  if (classSelect) classSelect.onchange = e => {
+    state.preferredClass = e.target.value;
+    saveState();
+    renderRecommendations();
+  };
 
   const addBtn = document.getElementById("add-char");
   if (addBtn) addBtn.onclick = () => editCharacter(-1);
@@ -269,7 +315,7 @@ function bindEvents() {
   if (resetBtn) resetBtn.onclick = () => {
     if (confirm("Reset all local data?")) {
       localStorage.removeItem(STORAGE_KEY);
-      state = { duoMode: false, playstyle: "", characters: [], duoPartner: null };
+      state = { duoMode: false, faction: "", playstyle: "", preferredClass: "", characters: [], duoPartner: null };
       renderAll();
     }
   };
@@ -278,9 +324,10 @@ function bindEvents() {
   if (exportBtn) exportBtn.onclick = () => {
     const data = {
       preferredRole: state.playstyle || "",
+      preferredClass: state.preferredClass || "",
       gathering: state.characters.find(c => GATHERING_PROFS.includes(c.prof1))?.prof1 ||
                  state.characters.find(c => GATHERING_PROFS.includes(c.prof2))?.prof2 || "",
-      faction: state.characters[0]?.faction || "Alliance"
+      faction: state.faction || "Alliance"
     };
     const text = JSON.stringify(data, null, 2);
     const out = document.getElementById("export-output");
@@ -294,7 +341,7 @@ function bindEvents() {
     if (!input) return;
     try {
       const data = JSON.parse(input.value);
-      state.duoPartner = { class: data.preferredClass || "", gathering: data.gathering || "", faction: data.faction || "Alliance" };
+      state.duoPartner = { class: data.preferredClass || "", gathering: data.gathering || "", faction: data.faction || state.faction };
       saveState();
       renderAll();
     } catch (e) {
