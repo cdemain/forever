@@ -1,540 +1,498 @@
-/* Duo Legacy Plan — static GitHub Pages build. */
+/* Static Legacy Optimization Plan. Roster and checklist stay in localStorage.
+ * No Battle.net login in this copy.
+ */
 (function () {
   "use strict";
-
-  var STORAGE_KEY = "wow-forever-duo-plan-v1";
-
-  var LINKS = {
-    legacy: "https://www.wowhead.com/forever/guide/legacy-system-overview-rewards",
-    calculator: "https://www.wowhead.com/forever/legacy-calculator",
-    pointsNews: "https://www.wowhead.com/forever/news/how-do-legacy-points-work-in-wow-forever-383029",
-    explained: "https://www.wowhead.com/forever/news/warcraft-forever-legacy-system-explained-382842",
-    professions: "https://www.wowhead.com/forever/guides/professions",
-    camping: "https://www.wowhead.com/forever/guide/camping-overview-unlock-rewards",
-    skinningChange:
-      "https://www.wowhead.com/forever/news/skinning-no-longer-group-wide-in-latest-wow-forever-beta-build-383226",
-    blizzard: "https://worldofwarcraft.blizzard.com/en-us/forever",
-    blizzardNews:
-      "https://news.blizzard.com/en-us/article/24301508/pre-purchase-world-of-warcraft-forever-upgrades-and-begin-your-next-journey-in-azeroth",
-    hunter: "https://www.wowhead.com/forever/guide/classes/hunter/marksmanship/level-30-dps-overview",
-    mage: "https://www.wowhead.com/forever/guide/classes/mage/fire/level-30-dps-overview",
-    priest: "https://www.wowhead.com/forever/guide/classes/priest/holy/level-30-healer-overview",
-    shaman: "https://www.wowhead.com/forever/guide/classes/shaman/enhancement/overview-pve-dps",
-    alchemy: "https://www.wowhead.com/forever/guide/professions/alchemy-overview-trainer-locations-recipes",
-    tailoring: "https://www.wowhead.com/forever/guide/professions/tailoring-overview-trainer-locations-recipes",
-    herbalism: "https://www.wowhead.com/forever/guide/professions/herbalism/overview-leveling",
-  };
-
-  var CRAFTS = ["Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Leatherworking", "Tailoring"];
-  var GATHERS = ["Herbalism", "Mining", "Skinning"];
-
-  var PROF_INFO = {
-    Alchemy: { skillId: 171, guide: LINKS.alchemy, tip: "Potions and elixirs. Counts toward Legacy Points at 150, 225, and 300. Pair it with mailed herbs." },
-    Blacksmithing: { skillId: 164, tip: "Mail and plate, plus weapon stones. Counts toward Legacy Points. Spare greens go to the enchanter." },
-    Enchanting: { skillId: 333, tip: "Disenchant mailed greens into dust and essences. Counts toward Legacy Points. Do not vendor those greens." },
-    Engineering: { skillId: 202, tip: "Goggles, gadgets, and ammunition-style toys. Counts toward Legacy Points. It is the craft this roster cannot fit until something else moves." },
-    Leatherworking: { skillId: 165, tip: "Leather and mail armor for the hunter or druid. Counts toward Legacy Points. Mail spare pieces to be disenchanted." },
-    Tailoring: { skillId: 197, guide: LINKS.tailoring, tip: "Train this first on the caster. Bags are the bottleneck for a fresh duo, and cloth drops off mobs you are already killing." },
-    Herbalism: { skillId: 182, guide: LINKS.herbalism, tip: "Feeds Alchemy. Does not award Legacy Points. Mail herbs; do not let them sit on the gatherer." },
-    Mining: { skillId: 186, tip: "Feeds Blacksmithing and, later, Engineering. Does not award Legacy Points." },
-    Skinning: { skillId: 393, tip: "Feeds Leatherworking. Does not award Legacy Points. A corpse can be skinned once, so a second skinner does not double the leather." },
-  };
-
-  var P1_PROFS = {
-    "skin-lw": { label: "Skinning + Leatherworking", profs: ["Skinning", "Leatherworking"], note: "Default. Leather and mail for the comfort class, and greens for the enchanter." },
-    "mine-bs": { label: "Mining + Blacksmithing", profs: ["Mining", "Blacksmithing"], note: "Take this only if you would rather smith than work leather. Check the coverage board so two people are not both smiths." },
-  };
-  var P2_PROFS = {
-    "tailor-herb": { label: "Tailoring + Herbalism", profs: ["Tailoring", "Herbalism"], note: "Default. Bags immediately, and an herb pipeline for the alchemy alt." },
-    "alch-ench": { label: "Alchemy + Enchanting", profs: ["Alchemy", "Enchanting"], note: "Consumables and disenchanting on the caster. Nobody else in the default roster makes bags, so switch this only if you accept buying bags." },
-  };
-  var PAL_PROFS = {
-    "mine-bs": { label: "Mining + Blacksmithing", profs: ["Mining", "Blacksmithing"], note: "Default. Ore for plate and mail, and extra greens to disenchant." },
-    "mine-eng": { label: "Mining + Engineering", profs: ["Mining", "Engineering"], note: "Closes the Engineering gap and drops Blacksmithing. Do this at the start, or after Blacksmithing has already reached 150." },
-  };
-  var ALT_PROFS = {
-    "alch-ench": { label: "Alchemy + Enchanting", profs: ["Alchemy", "Enchanting"], note: "Default. Uses mailed herbs and turns spare greens into enchanting materials." },
-    "alch-eng": { label: "Alchemy + Engineering", profs: ["Alchemy", "Engineering"], note: "Picks up Engineering. Enchanting has to live on someone else, or greens get vendored." },
-    "ench-eng": { label: "Enchanting + Engineering", profs: ["Enchanting", "Engineering"], note: "Picks up Engineering. Alchemy has to live on Player 2, or the herbs have nowhere to go." },
-  };
-
-  var CLASS_INFO = {
-    hunter: { name: "Hunter", id: 3, guide: LINKS.hunter, blurb: "Pet does the dangerous work. You stand back and shoot. Strong default if you want an easy pull and leather or mail." },
-    druid: { name: "Druid", id: 11, blurb: "Travel form, a bear when a pull goes wrong, and heals if a dungeon needs them. One character covers a lot of holes." },
-    mage: { name: "Mage", id: 8, guide: LINKS.mage, blurb: "Ranged caster with food, water, and later portals. Best default if the second player wants to cast and not manage a pet." },
-    paladin: { name: "Paladin", id: 2, blurb: "Plate, a bubble, and auras. Can heal or tank a dungeon without being the main character of the duo. Comfortable early, unlike a warrior." },
-    priest: { name: "Priest", id: 5, guide: LINKS.priest, blurb: "Excellent healer and a real caster. Wait. Learn dungeons on classes you already like, then add a priest when a group role is the fun part." },
-    warrior: { name: "Warrior", id: 1, blurb: "Strong later, grindy at the start. Delay until you have gold, bags, food, and the habit of logging out in an inn." },
-  };
-
-  var PHASES = [
-    {
-      id: "p1", kicker: "Phase 1", title: "Establish the supply chain", blurb: "Characters, trainers, bags, and a mailbox habit. No dungeon yet.",
-      items: [
-        { id: "roll", text: "Roll Player 1 and Player 2 on the same realm and faction.", detail: "Shared alts have to mail you. Different realms cannot." },
-        { id: "train", text: "Train the profession pairs shown on the roster.", detail: "Starter towns usually have the apprentice trainers. Ask a guard if the map is empty." },
-        { id: "bags", text: "Make or buy the first bags and mail a set to each character.", detail: "Tailoring is why this is early. Six-slot bags change how long you can quest." },
-        { id: "alts", text: "Create the paladin and the second alt, even if they only log in to train.", detail: "They can sit at level 1 inside an inn and still be your profession benches." },
-        { id: "inn", text: "Log every character you are not playing out inside an inn.", detail: "Rested experience only builds while logged out in an inn or a capital." },
-      ],
-    },
-    {
-      id: "p2", kicker: "Phase 2", title: "Dungeon gauntlet to about 20–21", blurb: "Quest until the first dungeon, then run it. Keep mailing.",
-      items: [
-        { id: "quest", text: "Quest the two mains to the first dungeon bracket. Do not rush.", detail: "If a pull feels bad, it is too soon. Comfort is the point of this roster." },
-        { id: "dungeon", text: "Run the early dungeon your faction actually uses.", detail: "Horde often starts in Ragefire Chasm, then Wailing Caverns. Alliance often uses the Deadmines. Both are enough to set up the 20s." },
-        { id: "mail", text: "After each session, mail herbs, ore, leather, and spare greens.", detail: "Greens go to the enchanter. Materials go to the crafter. Coins stay on the character who needs skills." },
-        { id: "toward150", text: "Push each crafting profession you already have toward 150.", detail: "150 is the first Legacy Point for that craft. Gathering skill does not score." },
-        { id: "rested-swap", text: "Swap who is online when rested experience runs out.", detail: "The parked characters should be gaining rested experience while you play the other one." },
-      ],
-    },
-    {
-      id: "p3", kicker: "Phase 3", title: "Shadowfang Keep and Blackfathom Deeps to 25", blurb: "This is the first real Legacy Point spike.",
-      items: [
-        { id: "sfk-bfd", text: "Run Shadowfang Keep, then Blackfathom Deeps, as the levels open up.", detail: "Both factions use these. Go in when the quests send you, not the moment the entrance turns gray." },
-        { id: "level25", text: "Get the core characters to level 20–25.", detail: "Level 25 on a class is one Legacy Point. A second character of that same class does not grant it again." },
-        { id: "skill150", text: "Hit 150 on every crafting profession this roster covers.", detail: "Five crafts is a normal result here. Engineering usually joins on the next wave." },
-        { id: "spend", text: "Spend into Working Overtime, then Well Rested.", detail: "Five ranks each. Put profession speed on crafters and rested speed on whoever is leveling." },
-      ],
-    },
-    {
-      id: "later", kicker: "Later", title: "After about 20–25 Legacy Points", blurb: "Only once dungeons feel ordinary. Not before.",
-      items: [
-        { id: "engineering", text: "Close Engineering so all six crafts are on the account.", detail: "Cleanest swap: the paladin drops Blacksmithing for Engineering after the smithing point at 150, and keeps Mining." },
-        { id: "push225", text: "Take covered crafts to 225, then to 300.", detail: "Each of those thresholds is another point per craft. Six crafts at all three marks is 18 points." },
-        { id: "priest", text: "Add a priest when you want a healer you already trust in groups." },
-        { id: "warrior", text: "Add a warrior last of the delayed pair.", detail: "Feed it bags, food, and spare gear from the crafters. Do not level it hungry." },
-        { id: "rest-classes", text: "Level any class you still have not played, at the same 25, then 45, then 60 marks.", detail: "Rogue, shaman, warlock, and whichever starter class you skipped. None of these are required to begin." },
-      ],
-    },
+  var KEY = "wow-forever-duo-plan-v2";
+  var CLASSES = ["hunter","druid","mage","paladin","priest","warrior","rogue","shaman","warlock"];
+  var CLASS_NAME = {hunter:"Hunter",druid:"Druid",mage:"Mage",paladin:"Paladin",priest:"Priest",warrior:"Warrior",rogue:"Rogue",shaman:"Shaman",warlock:"Warlock"};
+  var CRAFTS = ["Alchemy","Blacksmithing","Enchanting","Engineering","Leatherworking","Tailoring"];
+  var GATHERS = ["Herbalism","Mining","Skinning"];
+  var PROFS = CRAFTS.concat(GATHERS);
+  var RACES = [
+    {id:"human",name:"Human",faction:"alliance",zone:"Elwynn Forest",classes:["warrior","hunter","rogue","priest","mage","warlock","paladin"]},
+    {id:"dwarf",name:"Dwarf",faction:"alliance",zone:"Dun Morogh",classes:["warrior","hunter","rogue","priest","paladin","shaman"]},
+    {id:"night-elf",name:"Night Elf",faction:"alliance",zone:"Teldrassil",classes:["warrior","hunter","rogue","priest","druid"]},
+    {id:"gnome",name:"Gnome",faction:"alliance",zone:"Dun Morogh",classes:["warrior","mage","rogue","priest","warlock"]},
+    {id:"skyborne-a",name:"Skyborne",faction:"alliance",zone:"Zephras Isle",classes:["warrior","hunter","mage","rogue","druid"],pack:true},
+    {id:"orc",name:"Orc",faction:"horde",zone:"Durotar",classes:["warrior","hunter","mage","rogue","warlock","shaman"]},
+    {id:"undead",name:"Undead",faction:"horde",zone:"Tirisfal Glades",classes:["warrior","mage","rogue","priest","warlock","paladin"]},
+    {id:"tauren",name:"Tauren",faction:"horde",zone:"Mulgore",classes:["warrior","hunter","druid","shaman"]},
+    {id:"troll",name:"Troll",faction:"horde",zone:"Durotar",classes:["warrior","hunter","mage","rogue","priest","warlock","shaman"]},
+    {id:"skyborne-h",name:"Skyborne",faction:"horde",zone:"Zephras Isle",classes:["warrior","hunter","rogue","druid","shaman"],pack:true}
   ];
-
-  var ALL_CHECK_IDS = PHASES.reduce(function (ids, phase) {
-    phase.items.forEach(function (item) { ids.push(item.id); });
-    return ids;
-  }, []);
-
-  var DEFAULT_STATE = {
-    p1Class: "hunter", p1Prof: "skin-lw",
-    p2Class: "mage", p2Prof: "tailor-herb",
-    altClass: "druid", altProf: "alch-ench",
-    palProf: "mine-bs", checks: {},
-  };
-
-  var state = loadState(localStorage.getItem(STORAGE_KEY));
-  var open = { p1: true };
-  var copied = false;
-  var openTip = "";
-
-  function classHref(id) { return "https://www.wowhead.com/forever/class=" + id; }
-  function skillHref(id) { return "https://www.wowhead.com/forever/skill=" + id; }
+  var state = load(localStorage.getItem(KEY));
+  var note = "";
+  var draft = null;
+  var importText = "";
 
   function esc(value) {
-    return String(value).replace(/[&<>"']/g, function (ch) {
-      return "&#" + ch.charCodeAt(0) + ";";
-    });
+    return String(value).replace(/[&<>"']/g, function (ch) { return "&#" + ch.charCodeAt(0) + ";"; });
   }
+  function label(key) { return CLASS_NAME[key] || key; }
+  function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
 
-  function icon(name) {
-    var paths = {
-      check: '<polyline points="20 6 9 17 4 12"/>',
-      chevron: '<polyline points="6 9 12 15 18 9"/>',
-      copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
-      printer: '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
-      info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
-      external: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
-      moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
-      book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
-      reset: '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
-    };
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths[name] + "</svg>";
-  }
-
-  function ext(href, label) {
-    return '<a class="ext" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' +
-      esc(label) + icon("external") + '<span class="sr-only"> (opens in a new tab)</span></a>';
-  }
-
-  function tip(id, text) {
-    var shown = openTip === id;
-    return '<span class="tip">' +
-      '<button type="button" class="tip-btn" data-tip="' + esc(id) + '" aria-expanded="' + shown + '" aria-label="Short explanation">' +
-      icon("info") + "</button>" +
-      '<span class="tip-bubble' + (shown ? " is-open" : "") + '" role="tooltip">' + esc(text) + "</span></span>";
-  }
-
-  function profName(name, id) {
-    var info = PROF_INFO[name];
-    var href = info.guide || skillHref(info.skillId);
-    return '<span class="name-with-tip">' + ext(href, name) + tip(id, info.tip) + "</span>";
-  }
-
-  function className(key) {
-    var info = CLASS_INFO[key];
-    var html = '<span class="name-with-tip">' + ext(classHref(info.id), info.name);
-    if (info.guide) html += ext(info.guide, "Guide");
-    return html + "</span>";
-  }
-
-  function choice(group, label, value, options) {
-    var buttons = options.map(function (option) {
-      var on = value === option.id;
-      return '<button type="button" role="radio" aria-checked="' + on + '" class="choice-opt' + (on ? " is-on" : "") +
-        '" data-choice="' + esc(group) + '" data-value="' + esc(option.id) + '">' + esc(option.label) + "</button>";
-    }).join("");
-    return '<fieldset class="choice"><legend>' + esc(label) + '</legend><div class="choice-row" role="radiogroup">' + buttons + "</div></fieldset>";
-  }
-
-  function loadState(raw) {
-    if (!raw) return Object.assign({}, DEFAULT_STATE, { checks: {} });
+  function load(raw) {
+    var base = {mode:"solo",playstyle:"hunter",faction:"both",partner:{classKey:"mage",gathering:["Herbalism"],faction:""},characters:[],checks:{},pairPicks:{}};
+    if (!raw) return base;
     try {
       var parsed = JSON.parse(raw);
-      var checks = {};
-      if (parsed.checks && typeof parsed.checks === "object") {
-        ALL_CHECK_IDS.forEach(function (id) {
-          if (parsed.checks[id] === true) checks[id] = true;
-        });
+      if (parsed.kind === "duo-legacy-partner") {
+        base.mode = "duo";
+        base.partner = cleanPartner(parsed);
+        return base;
       }
-      return {
-        p1Class: parsed.p1Class === "druid" ? "druid" : "hunter",
-        p2Class: parsed.p2Class === "hunter" ? "hunter" : "mage",
-        altClass: parsed.altClass === "hunter" || parsed.altClass === "mage" ? parsed.altClass : "druid",
-        p1Prof: parsed.p1Prof === "mine-bs" ? "mine-bs" : "skin-lw",
-        p2Prof: parsed.p2Prof === "alch-ench" ? "alch-ench" : "tailor-herb",
-        palProf: parsed.palProf === "mine-eng" ? "mine-eng" : "mine-bs",
-        altProf: parsed.altProf === "alch-eng" || parsed.altProf === "ench-eng" ? parsed.altProf : "alch-ench",
-        checks: checks,
-      };
-    } catch (err) {
-      return Object.assign({}, DEFAULT_STATE, { checks: {} });
-    }
+      base.mode = parsed.mode === "duo" ? "duo" : "solo";
+      base.playstyle = CLASS_NAME[parsed.playstyle] ? parsed.playstyle : "hunter";
+      base.faction = parsed.faction === "alliance" || parsed.faction === "horde" ? parsed.faction : "both";
+      base.partner = cleanPartner(parsed.partner || {});
+      base.characters = Array.isArray(parsed.characters) ? parsed.characters.map(cleanChar).filter(Boolean) : [];
+      base.checks = parsed.checks && typeof parsed.checks === "object" ? parsed.checks : {};
+      base.pairPicks = parsed.pairPicks && typeof parsed.pairPicks === "object" ? parsed.pairPicks : {};
+      return base;
+    } catch (err) { return base; }
   }
-
-  function analyze(current) {
-    var seats = [
-      { who: "Player 1", classKey: current.p1Class, profs: P1_PROFS[current.p1Prof].profs },
-      { who: "Player 2", classKey: current.p2Class, profs: P2_PROFS[current.p2Prof].profs },
-      { who: "Paladin alt", classKey: "paladin", profs: PAL_PROFS[current.palProf].profs },
-      { who: "Second alt", classKey: current.altClass, profs: ALT_PROFS[current.altProf].profs },
-    ].map(function (seat) {
-      return { who: seat.who, classKey: seat.classKey, className: CLASS_INFO[seat.classKey].name, profs: seat.profs };
-    });
-    function holdersOf(name) {
-      return seats.filter(function (seat) { return seat.profs.indexOf(name) !== -1; }).map(function (seat) { return seat.who; });
-    }
-    var crafts = CRAFTS.map(function (name) { return { name: name, holders: holdersOf(name) }; });
-    var gathering = GATHERS.map(function (name) { return { name: name, holders: holdersOf(name) }; });
-    var counts = {};
-    seats.forEach(function (seat) { counts[seat.className] = (counts[seat.className] || 0) + 1; });
-    var uniqueClasses = Object.keys(counts);
-    var duplicateClasses = uniqueClasses.filter(function (name) { return counts[name] > 1; });
-    var warnings = [];
-    if (duplicateClasses.length) {
-      warnings.push(duplicateClasses.join(" and ") + " is on more than one character. Level 25, 45, and 60 points are once per class, not once per character. The extra character is still useful for professions.");
-    }
-    var missing = crafts.filter(function (craft) { return !craft.holders.length; }).map(function (craft) { return craft.name; });
-    if (missing.indexOf("Engineering") !== -1 && missing.length === 1) {
-      warnings.push("Engineering is the open craft. That is expected at the start: four characters hold eight professions, and six crafts plus herbalism, mining, and skinning is nine. Switch the paladin from Blacksmithing to Engineering when you want the sixth craft.");
-    } else if (missing.length) {
-      warnings.push("Not covering " + missing.join(", ") + ". The 18 profession points need all six crafts at 150, 225, and 300. Change a pair above, or plan the swap before you pass skill 150.");
-    }
-    crafts.forEach(function (craft) {
-      if (craft.holders.length > 1) {
-        warnings.push(craft.name + " is on " + craft.holders.join(" and ") + ". Only one of them can earn the profession points. Free the duplicate slot.");
-      }
-    });
-    if (holdersOf("Skinning").length > 1) {
-      warnings.push("Two skinners do not double leather. A corpse can be skinned once. Keep Skinning on one character.");
-    }
-    if (!holdersOf("Tailoring").length) {
-      warnings.push("Nobody is tailoring. You will buy bags instead of making them. Put Tailoring back on Player 2 if bag space starts to hurt.");
-    }
-    if (!holdersOf("Enchanting").length) {
-      warnings.push("Nobody can disenchant. Spare greens should be mailed, not vendored, once an enchanter exists.");
-    }
-    var classPointsAt25 = uniqueClasses.length;
-    var profPointsAt150 = crafts.filter(function (craft) { return craft.holders.length; }).length;
+  function cleanPartner(raw) {
+    raw = raw || {};
     return {
-      seats: seats, crafts: crafts, craftsCovered: profPointsAt150, gathering: gathering,
-      classPointsAt25: classPointsAt25, profPointsAt150: profPointsAt150,
-      earlyTotal: classPointsAt25 + profPointsAt150, warnings: warnings,
+      classKey: CLASS_NAME[raw.classKey] ? raw.classKey : "mage",
+      gathering: Array.isArray(raw.gathering) ? raw.gathering.filter(function (name) { return GATHERS.indexOf(name) !== -1; }).slice(0, 2) : [],
+      faction: raw.faction === "alliance" || raw.faction === "horde" ? raw.faction : ""
     };
   }
-
-  function buildSummary(current) {
-    var report = analyze(current);
-    var covered = report.crafts.filter(function (craft) { return craft.holders.length; }).map(function (craft) { return craft.name; });
-    var missing = report.crafts.filter(function (craft) { return !craft.holders.length; }).map(function (craft) { return craft.name; });
-    return [
-      "WoW Forever Duo Legacy Plan — Comfort-First Alt Army",
-      "",
-      "Roster",
-    ].concat(report.seats.map(function (seat) {
-      return "- " + seat.who + ": " + seat.className + " — " + seat.profs.join(" + ");
-    })).concat([
-      "",
-      "Crafts covered (" + report.craftsCovered + " of 6): " + (covered.join(", ") || "none"),
-      "Still open: " + (missing.join(", ") || "none"),
-      "",
-      "If every unique class here hits 25 and every covered craft hits 150: " + report.earlyTotal + " Legacy Points (" + report.classPointsAt25 + " class + " + report.profPointsAt150 + " profession).",
-      "A repeated class does not add another level point.",
-      "",
-      "Spend",
-      "- Working Overtime, 5 ranks, on characters raising professions.",
-      "- Well Rested, 5 ranks, on characters you are leveling.",
-      "- Launch cap is 16 points spent per character. Leave the rest until you know what you lack.",
-      "",
-      "Habits",
-      "- Log out in an inn.",
-      "- Mail herbs, ore, leather, and greens. Disenchant on the enchanter.",
-      "- Priest, then warrior, after about 20–25 Legacy Points and after dungeons feel ordinary.",
-      "",
-      "Sources: Wowhead Forever Legacy guide, Wowhead Legacy calculator, Blizzard launch notes.",
-    ]).join("\n");
+  function cleanChar(raw) {
+    if (!raw || !CLASS_NAME[raw.classKey]) return null;
+    var profs = [0, 1].map(function (index) {
+      var slot = raw.profs && raw.profs[index] ? raw.profs[index] : {};
+      return {name: PROFS.indexOf(slot.name) !== -1 ? slot.name : "", skill: Math.max(0, Math.min(300, Number(slot.skill) || 0))};
+    });
+    return {
+      id: raw.id || ("c-" + Math.random().toString(36).slice(2, 8)),
+      name: String(raw.name || "").slice(0, 24),
+      classKey: raw.classKey,
+      raceId: RACES.some(function (race) { return race.id === raw.raceId; }) ? raw.raceId : "",
+      level: Math.max(1, Math.min(60, Number(raw.level) || 1)),
+      faction: raw.faction === "horde" ? "horde" : "alliance",
+      role: raw.role === "main" ? "main" : "alt",
+      owner: raw.owner === "partner" ? "partner" : "me",
+      profs: profs,
+      rested: raw.rested === "rested" || raw.rested === "spent" ? raw.rested : "unknown",
+      source: raw.source === "battlenet" ? "battlenet" : "manual",
+      realm: String(raw.realm || "").slice(0, 40)
+    };
+  }
+  function racesFor(faction, classKey, zone) {
+    return RACES.filter(function (race) {
+      return race.faction === faction && race.classes.indexOf(classKey) !== -1 && (zone === undefined || race.zone === zone);
+    });
+  }
+  function startFor(faction, classA, classB) {
+    var zones = [];
+    RACES.forEach(function (race) { if (race.faction === faction && zones.indexOf(race.zone) === -1) zones.push(race.zone); });
+    var options = [];
+    zones.forEach(function (zone) {
+      var a = racesFor(faction, classA, zone);
+      var b = classB ? racesFor(faction, classB, zone) : a;
+      if (!a.length || !b.length) return;
+      var you = a[0], partner = classB ? b[0] : null, different = false;
+      if (classB) {
+        a.forEach(function (left) {
+          b.forEach(function (right) {
+            if (!different && left.id !== right.id) { you = left; partner = right; different = true; }
+          });
+        });
+      } else {
+        you = a.filter(function (race) { return !race.pack; })[0] || a[0];
+      }
+      options.push({faction:faction, zone:zone, you:you, partner:partner, different:different, pack:Boolean((you && you.pack) || (partner && partner.pack))});
+    });
+    options.sort(function (left, right) {
+      if (left.different !== right.different) return left.different ? -1 : 1;
+      if (left.pack !== right.pack) return left.pack ? 1 : -1;
+      return left.zone.localeCompare(right.zone);
+    });
+    return options[0] || null;
+  }
+  var PAIRS = {
+    hunter: [["Skinning","Leatherworking","Leather and mail armor for a hunter."],["Skinning","Enchanting","Skinning, plus disenchanting while you level."]],
+    druid: [["Skinning","Leatherworking","Leather armor for a druid."],["Herbalism","Alchemy","Potions, if someone else is already making leather armor."]],
+    rogue: [["Skinning","Leatherworking","Leather armor for a rogue."]],
+    shaman: [["Skinning","Leatherworking","Leatherworking makes the mail a shaman wears."],["Mining","Blacksmithing","Blacksmithing also makes mail."],["Mining","Engineering","Same ore, if you would rather take Engineering than Blacksmithing."]],
+    mage: [["Tailoring","Enchanting","Bags, cloth armor, and disenchanting."],["Herbalism","Alchemy","Potions, if someone else is already tailoring."]],
+    priest: [["Tailoring","Enchanting","Cloth armor and disenchanting."],["Herbalism","Alchemy","Potions, if someone else is already tailoring."]],
+    warlock: [["Tailoring","Enchanting","Cloth armor and disenchanting."],["Herbalism","Alchemy","Potions, if someone else is already tailoring."]],
+    paladin: [["Mining","Blacksmithing","Plate and mail armor for a paladin."],["Mining","Engineering","Same ore, if you would rather take Engineering than Blacksmithing."]],
+    warrior: [["Mining","Blacksmithing","Plate armor for a warrior."],["Mining","Engineering","Same ore, if you would rather take Engineering than Blacksmithing."],["Skinning","Leatherworking","Leather armor while leveling, before plate is the main set."]]
+  };
+  var DELAYED = {priest:1, warrior:1};
+  function isCraft(name) { return CRAFTS.indexOf(name) !== -1; }
+  function isGather(name) { return GATHERS.indexOf(name) !== -1; }
+  function pairScore(pair, covered, used) {
+    var fresh = 0;
+    pair.slice(0, 2).forEach(function (name) { if (isCraft(name) && !covered[name]) fresh += 1; });
+    var gather = pair.slice(0, 2).filter(isGather)[0];
+    return fresh * 10 - (gather && used[gather] ? 6 : 0);
+  }
+  function chosenPair(pickKey, covered, used) {
+    var classKey = pickKey.split(":").pop();
+    var options = PAIRS[classKey] || [["Mining","Blacksmithing","Ore for plate and mail."]];
+    var pick = state.pairPicks && state.pairPicks[pickKey];
+    var found = options.filter(function (pair) { return pair[0] + "|" + pair[1] === pick; })[0];
+    if (found) return found;
+    return options.reduce(function (best, pair) { return pairScore(pair, covered, used) > pairScore(best, covered, used) ? pair : best; });
+  }
+  function suggest(owner, classKey, faction, blocked) {
+    var covered = {};
+    var used = {};
+    blocked.forEach(function (name) { used[name] = 1; });
+    var seats = [];
+    var order = ["paladin","mage","druid","hunter","rogue","shaman","warlock","priest","warrior"].filter(function (key) { return key !== classKey; });
+    function add(role, key) {
+      var pair = chosenPair(owner + ":" + key, covered, used);
+      pair.slice(0, 2).forEach(function (name) {
+        if (isCraft(name)) covered[name] = 1;
+        if (isGather(name)) used[name] = 1;
+      });
+      seats.push({owner:owner, role:role, classKey:key, profs:pair.slice(0, 2), options:PAIRS[key] || [pair], why:(DELAYED[key] ? "Save this class for later, when you are more familiar with the game. " : "") + pair[2]});
+    }
+    add("main", classKey);
+    while (seats.length < 4 && Object.keys(covered).length < CRAFTS.length) {
+      var bestKey = "";
+      var bestScore = 0;
+      order.forEach(function (key) {
+        if (seats.some(function (seat) { return seat.classKey === key; })) return;
+        var score = pairScore(chosenPair(owner + ":" + key, covered, used), covered, used);
+        if (score > bestScore) { bestScore = score; bestKey = key; }
+      });
+      if (!bestKey) break;
+      add("alt", bestKey);
+    }
+    return seats;
+  }
+  function plan() {
+    var factions = state.faction === "both" ? ["alliance","horde"] : [state.faction];
+    var partnerClass = state.mode === "duo" ? state.partner.classKey : null;
+    var starts = factions.map(function (faction) { return startFor(faction, state.playstyle, partnerClass); }).filter(Boolean);
+    var faction = starts[0] ? starts[0].faction : "alliance";
+    var me = suggest("me", state.playstyle, faction, []);
+    var myGather = me[0].profs.filter(function (name) { return GATHERS.indexOf(name) !== -1; })[0] || "";
+    var partner = state.mode === "duo" ? suggest("partner", state.partner.classKey, state.partner.faction || faction, myGather ? [myGather] : []) : [];
+    return {starts:starts, me:me, partner:partner};
+  }
+  function coverage(list) {
+    var crafts = CRAFTS.map(function (name) {
+      return {name:name, holders:list.filter(function (item) { return item.profs.indexOf(name) !== -1; }).map(function (item) { return label(item.classKey); })};
+    });
+    var unique = [];
+    list.forEach(function (item) { if (unique.indexOf(item.classKey) === -1) unique.push(item.classKey); });
+    var covered = crafts.filter(function (craft) { return craft.holders.length; }).length;
+    return {crafts:crafts, total:unique.length + covered, covered:covered, classes:unique.length};
+  }
+  function advice(built) {
+    var lines = [];
+    var mine = state.characters.filter(function (character) { return character.owner === "me"; });
+    var spent = mine.filter(function (character) { return character.rested === "spent"; });
+    var rested = mine.filter(function (character) { return character.rested === "rested"; });
+    if (spent.length && rested.length) lines.push("Leave " + spent.map(function (character) { return character.name || label(character.classKey); }).join(", ") + " logged out in an inn and play the rested character.");
+    else if (mine.length) lines.push("Log out in an inn on the character you are not playing. Rested experience does not build if you log out at the door.");
+    else lines.push("Add characters after you create them. Until then, this is a suggested set for the class you picked.");
+    if (state.mode === "duo") {
+      var mineG = (mine.filter(function (character) { return character.role === "main"; })[0] || {profs:built.me[0].profs.map(function (name) { return {name:name}; })}).profs.map(function (slot) { return slot.name; });
+      var theirG = state.partner.gathering.slice();
+      GATHERS.forEach(function (name) {
+        if (mineG.indexOf(name) !== -1 && theirG.indexOf(name) !== -1) lines.push("Both main characters have " + name + ". Split that while you play together. The same herb, ore vein, or animal does not pay twice.");
+      });
+    }
+    var factions = {};
+    state.characters.forEach(function (character) { factions[character.faction] = 1; });
+    if (state.partner.faction) factions[state.partner.faction] = 1;
+    if (Object.keys(factions).length > 1) lines.push("These characters are not all the same faction. Mail does not cross factions in Forever, and you cannot group across factions.");
+    return lines;
   }
 
-  function seatCard(id, index, title, classKey, profs, role, body) {
-    var info = CLASS_INFO[classKey];
-    var isOpen = !!open[id];
-    return '<article class="seat" id="' + id + '">' +
-      '<button type="button" class="fold-toggle" data-fold="' + id + '" aria-expanded="' + isOpen + '">' +
-      "<span><span class=\"seat-index\">" + esc(index) + "</span>" +
-      '<span class="seat-title">' + esc(title) + "</span>" +
-      '<span class="seat-class">' + esc(info.name) + " · " + esc(profs.join(" + ")) + "</span></span>" +
-      '<span class="chev' + (isOpen ? " is-open" : "") + '">' + icon("chevron") + "</span></button>" +
-      '<div class="fold-body' + (isOpen ? "" : " is-shut") + '">' +
-      '<p class="role">' + esc(role) + "</p>" +
-      '<p class="class-blurb">' + className(classKey) + ". " + esc(info.blurb) + "</p>" +
-      body +
-      '<p class="prof-links">' + profs.map(function (name) { return profName(name, id + "-" + name); }).join("") + "</p>" +
-      "</div></article>";
+  function options(keys, current) {
+    return keys.map(function (key) {
+      var id = typeof key === "string" ? key : key.id;
+      var text = typeof key === "string" ? (CLASS_NAME[key] || key) : key.label;
+      return '<option value="' + esc(id) + '"' + (id === current ? " selected" : "") + ">" + esc(text) + "</option>";
+    }).join("");
+  }
+  function radio(group, value, choices) {
+    return '<fieldset class="choice"><legend>' + esc(group) + '</legend><div class="choice-row">' + choices.map(function (choice) {
+      var on = value === choice.id;
+      return '<button type="button" class="choice-opt' + (on ? " is-on" : "") + '" data-set="' + esc(group) + '" data-value="' + esc(choice.id) + '">' + esc(choice.label) + "</button>";
+    }).join("") + "</div></fieldset>";
   }
 
-  function markup() {
-    var report = analyze(state);
-    var summary = buildSummary(state);
-    var done = ALL_CHECK_IDS.filter(function (id) { return state.checks[id]; }).length;
-    var p1 = P1_PROFS[state.p1Prof];
-    var p2 = P2_PROFS[state.p2Prof];
-    var pal = PAL_PROFS[state.palProf];
-    var alt = ALT_PROFS[state.altProf];
+  var PHASES = [
+    {id:"p1", kicker:"Phase 1", title:"Get characters, trainers, and bags", blurb:"No dungeon yet.", items:[
+      {id:"roll", text:"Create your characters on one realm. In a duo, both accounts use that realm and the same faction.", detail:"Mail does not cross factions or realms."},
+      {id:"train", text:"Learn the professions shown in the plan.", detail:"The starting towns usually have the first profession trainers."},
+      {id:"bags", text:"Make or buy bags and mail a set to each character.", detail:"This is why Tailoring comes first. A 6-slot bag lets you quest longer before you have to sell."},
+      {id:"alts", text:"Create extra characters, even if you only log them in to learn a profession.", detail:"Log them out in an inn when you are not playing them."},
+      {id:"inn", text:"Log out inside an inn on every character you are not playing.", detail:"Rested experience only builds while you are logged out in an inn or a city."}
+    ]},
+    {id:"p2", kicker:"Phase 2", title:"First dungeons, up to about level 20", blurb:"Quest until the first dungeon is a normal next step, then run it. Keep mailing materials.", items:[
+      {id:"quest", text:"Quest your main characters to the first dungeon. Do not rush.", detail:"If a fight feels too hard, quest a bit more before you go in."},
+      {id:"dungeon", text:"Run the early dungeon for your faction.", detail:"Horde often starts in Ragefire Chasm, then Wailing Caverns. Alliance often uses the Deadmines."},
+      {id:"mail", text:"After each session, mail herbs, ore, leather, and extra gear.", detail:"Extra gear goes to the enchanter. Materials go to the crafter."},
+      {id:"toward150", text:"Raise each crafting profession you already have toward 150.", detail:"150 is the first Legacy Point for that profession. Gathering skill does not give a point."},
+      {id:"rested-swap", text:"When rested experience runs out, switch to another character.", detail:"The characters you are not playing should be logged out in an inn."}
+    ]},
+    {id:"p3", kicker:"Phase 3", title:"Shadowfang Keep and Blackfathom Deeps to 25", blurb:"This is the first large batch of Legacy Points.", items:[
+      {id:"sfk-bfd", text:"Run Shadowfang Keep, then Blackfathom Deeps, when the quests send you there.", detail:"Both factions use these."},
+      {id:"level25", text:"Get the main characters to about level 20–25.", detail:"Level 25 on a class is one Legacy Point. A second character of the same class does not give that point again."},
+      {id:"skill150", text:"Reach 150 on each crafting profession this plan covers.", detail:"Five professions is a normal result here. Engineering usually comes later."},
+      {id:"spend", text:"Spend points on Working Overtime, then Well Rested.", detail:"Five ranks of each. Put Working Overtime on characters raising a profession, and Well Rested on the character you are leveling."}
+    ]},
+    {id:"later", kicker:"Later", title:"After you have about 20–25 Legacy Points", blurb:"Save the classes you are less comfortable with for later, when you are more familiar with the game.", items:[
+      {id:"engineering", text:"Add Engineering so all six crafting professions are on the account.", detail:"A common way is to keep Mining and replace Blacksmithing with Engineering after Blacksmithing reaches 150."},
+      {id:"push225", text:"Take the professions you already have to 225, then to 300.", detail:"Each of those skill levels is another point. Six professions at all three levels is 18 points."},
+      {id:"priest", text:"Add a priest when you want a healer and you are already comfortable in groups."},
+      {id:"warrior", text:"Add a warrior after the other classes you are less comfortable with.", detail:"Give that character bags, food, and spare gear first."},
+      {id:"rest-classes", text:"Level any class you have not played yet. The points are at 25, then 45, then 60.", detail:"That includes rogue, shaman, warlock, and any starting class you skipped. You do not need them to begin."}
+    ]}
+  ];
+  var SKILL = {Alchemy:171, Blacksmithing:164, Enchanting:333, Engineering:202, Leatherworking:165, Tailoring:197, Herbalism:182, Mining:186, Skinning:393};
 
-    var cards = [
-      seatCard("p1", "01", "Player 1", state.p1Class, p1.profs,
-        "Your main. Early comfort, leather or mail, and greens for disenchanting.",
-        choice("p1Class", "Class", state.p1Class, [{ id: "hunter", label: "Hunter" }, { id: "druid", label: "Druid" }]) +
-        choice("p1Prof", "Professions", state.p1Prof, [{ id: "skin-lw", label: "Skinning + Leatherworking" }, { id: "mine-bs", label: "Mining + Blacksmithing" }]) +
-        '<p class="card-note">' + esc(p1.note) + "</p>"),
-      seatCard("p2", "02", "Player 2", state.p2Class, p2.profs,
-        "Your partner. Ranged damage, bags, and the herb route. A caster is the default. A hunter is fine. A warlock is not required.",
-        choice("p2Class", "Class", state.p2Class, [{ id: "mage", label: "Mage" }, { id: "hunter", label: "Hunter" }]) +
-        choice("p2Prof", "Professions", state.p2Prof, [{ id: "tailor-herb", label: "Tailoring + Herbalism" }, { id: "alch-ench", label: "Alchemy + Enchanting" }]) +
-        '<p class="card-note">' + esc(p2.note) + "</p>"),
-      seatCard("pal", "03", "Shared alt", "paladin", pal.profs,
-        "Ore supply and mailed plate or mail. Can heal or tank a dungeon if you need a third body.",
-        '<p class="card-note">Paladin stays. It is the comfortable plate class. Warrior comes later.</p>' +
-        choice("palProf", "Professions", state.palProf, [{ id: "mine-bs", label: "Mining + Blacksmithing" }, { id: "mine-eng", label: "Mining + Engineering" }]) +
-        '<p class="card-note">' + esc(pal.note) + "</p>"),
-      seatCard("alt", "04", "Second alt", state.altClass, alt.profs,
-        "Finishes the crafting list. Another hunter or druid is fine if that is what you will actually log into.",
-        choice("altClass", "Class", state.altClass, [{ id: "druid", label: "Druid" }, { id: "hunter", label: "Hunter" }, { id: "mage", label: "Mage" }]) +
-        choice("altProf", "Professions", state.altProf, [
-          { id: "alch-ench", label: "Alchemy + Enchanting" },
-          { id: "alch-eng", label: "Alchemy + Engineering" },
-          { id: "ench-eng", label: "Enchanting + Engineering" },
-        ]) +
-        '<p class="card-note">' + esc(alt.note) + "</p>"),
-    ].join("");
-
-    var craftItems = report.crafts.map(function (craft) {
-      return '<li class="craft' + (craft.holders.length ? " is-on" : "") + '">' +
-        profName(craft.name, "board-" + craft.name) +
-        '<span class="craft-who">' + esc(craft.holders.length ? craft.holders.join(", ") : "Not covered") + "</span></li>";
-    }).join("");
-    var gatherItems = report.gathering.map(function (node) {
-      return "<li>" + profName(node.name, "gather-" + node.name) +
-        "<span>" + esc(node.holders.length ? node.holders.join(", ") : "Nobody") + "</span></li>";
-    }).join("");
-    var warningItems = report.warnings.map(function (warning) {
-      return "<li>" + esc(warning) + "</li>";
-    }).join("");
-
-    var laterOpen = !!open.later;
+  function doneCount() {
+    return PHASES.reduce(function (n, phase) {
+      return n + phase.items.filter(function (item) { return state.checks[item.id]; }).length;
+    }, 0);
+  }
+  function wh(name) {
+    return '<a class="ext" href="https://www.wowhead.com/forever/skill=' + SKILL[name] + '" target="_blank" rel="noopener noreferrer">' + esc(name) + '</a>';
+  }
+  function currentPhase() {
+    var top = 0;
+    state.characters.forEach(function (character) { if (character.owner === "me") top = Math.max(top, character.level); });
+    if (!state.characters.length || top < 10) return "p1";
+    if (top < 20) return "p2";
+    if (top < 26) return "p3";
+    return "later";
+  }
+  function tail(board, saved) {
+    var phaseId = currentPhase();
+    var phaseTitle = (PHASES.filter(function (phase) { return phase.id === phaseId; })[0] || PHASES[0]).title;
     var phases = PHASES.map(function (phase) {
       var phaseDone = phase.items.filter(function (item) { return state.checks[item.id]; }).length;
       var pct = Math.round((phaseDone / phase.items.length) * 100);
-      var items = phase.items.map(function (item) {
-        var checked = !!state.checks[item.id];
-        return "<li><button type=\"button\" role=\"checkbox\" class=\"check\" aria-checked=\"" + checked + "\" data-check=\"" + esc(item.id) + "\">" +
-          '<span class="check-box" aria-hidden="true">' + icon("check") + "</span><span>" +
-          '<span class="check-text">' + esc(item.text) + "</span>" +
-          (item.detail ? '<span class="check-detail">' + esc(item.detail) + "</span>" : "") +
-          "</span></button></li>";
-      }).join("");
-      return '<article class="phase"><header class="phase-head"><div><p class="kicker">' + esc(phase.kicker) +
-        "</p><h3>" + esc(phase.title) + "</h3><p>" + esc(phase.blurb) + "</p></div>" +
-        '<p class="tabular phase-count">' + phaseDone + "/" + phase.items.length + "</p></header>" +
-        '<div class="meter" role="meter" aria-label="' + esc(phase.title) + ' progress" aria-valuemin="0" aria-valuemax="' +
-        phase.items.length + '" aria-valuenow="' + phaseDone + '"><span style="width:' + pct + '%"></span></div>' +
-        '<ul class="checks">' + items + "</ul></article>";
+      return '<article class="phase' + (phase.id === phaseId ? " is-current" : "") + '"><header class="phase-head"><div><p class="kicker">' + esc(phase.kicker) + '</p><h3>' + esc(phase.title) + '</h3><p>' + esc(phase.blurb) + '</p></div><p class="tabular phase-count">' + phaseDone + '/' + phase.items.length + '</p></header><div class="meter" role="meter" aria-label="' + esc(phase.title) + '" aria-valuemin="0" aria-valuemax="' + phase.items.length + '" aria-valuenow="' + phaseDone + '"><span style="width:' + pct + '%"></span></div><ul class="checks">' +
+        phase.items.map(function (item) {
+          var on = !!state.checks[item.id];
+          return '<li><button type="button" class="check" data-check="' + item.id + '" aria-pressed="' + on + '"><span class="check-box" aria-hidden="true"></span><span><span class="check-text">' + esc(item.text) + '</span>' + (item.detail ? '<span class="check-detail">' + esc(item.detail) + '</span>' : '') + '</span></button></li>';
+        }).join("") + '</ul></article>';
     }).join("");
-
-    return '<div class="page"><a class="skip" href="#overview">Skip to the plan</a>' +
-      '<header class="topbar"><div class="topbar-inner"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"></span>Duo Legacy Plan</a>' +
-      '<p class="topbar-progress tabular"><span class="topbar-count">' + done + '</span><span class="topbar-of"> / ' + ALL_CHECK_IDS.length + " steps</span></p>" +
-      '<nav class="nav" aria-label="On this page"><a href="#overview">Overview</a><a href="#roster">Roster</a><a href="#points">Points</a><a href="#phases">Phases</a><a href="#summary">Summary</a></nav></div></header>' +
-      '<main id="top"><section class="hero"><p class="kicker">World of Warcraft: Forever</p><h1>Duo Legacy Plan</h1>' +
-      '<p class="hero-sub">Comfort-first alt army</p>' +
-      '<p class="lede">Earn Legacy Points early from professions and class milestones, and stay on classes you already like. One of you plays a comfortable melee-or-pet class. The other plays a ranged caster. Two shared alts hold the crafts the mains do not. Priest and warrior wait until the game feels ordinary.</p>' +
-      '<dl class="stats"><div><dt>Profession points</dt><dd class="tabular">18</dd></div><div><dt>Crafting professions</dt><dd class="tabular">6</dd></div><div><dt>Spend cap at launch</dt><dd class="tabular">16</dd></div><div><dt>Class milestones</dt><dd class="tabular">25 / 45 / 60</dd></div></dl></section>' +
-      '<section id="overview" class="block"><h2>How this plan works</h2><div class="steps">' +
-      '<article><p class="step-no">01</p><h3>Start comfortable</h3><p>Hunter or druid for you. Mage, or a second hunter, for your partner. Do not start on a priest or a warrior, and do not talk anyone into a warlock.</p></article>' +
-      '<article><p class="step-no">02</p><h3>Cover the six crafts</h3><p>Alchemy, blacksmithing, enchanting, engineering, leatherworking, and tailoring each score at 150, 225, and 300. Gathering does not. That is the 18 profession points.</p></article>' +
-      '<article><p class="step-no">03</p><h3>Park people in inns</h3><p>Only one character needs to be online. Everyone else logs out in an inn so rested experience keeps building. Mail herbs, ore, leather, and greens between sessions.</p></article></div>' +
-      '<p class="note">Launch is November 4, 2026. If you are in the beta, use it to learn the keys. Treat beta characters as practice unless Blizzard says they carry over. ' + ext(LINKS.blizzardNews, "Launch notes") + "</p></section>" +
-      '<section id="roster" class="block"><div class="section-head"><h2>Starting roster</h2>' +
-      '<button type="button" class="text-btn" data-action="reset"> ' + icon("reset") + "Recommended setup</button></div>" +
-      '<p class="section-lead">Open a card to change the class or the profession pair. The board under the cards updates what you actually cover.</p>' +
-      '<div class="cards">' + cards + "</div>" +
-      '<div class="board"><div class="board-head"><h3>What this roster scores</h3><p class="tabular board-total">' + report.earlyTotal + "<span> early points</span></p></div>" +
-      '<p class="board-math">' + report.classPointsAt25 + " from unique classes at level 25, plus " + report.profPointsAt150 + " from covered crafts at skill 150. Pushing those same crafts to 225 and 300 adds two more points each.</p>" +
-      '<ul class="craft-grid">' + craftItems + "</ul><ul class=\"gather-row\">" + gatherItems + "</ul>" +
-      (warningItems ? '<ul class="warnings">' + warningItems + "</ul>" : "") + "</div>" +
-      '<article class="later-card"><button type="button" class="fold-toggle" data-fold="later" aria-expanded="' + laterOpen + '">' +
-      '<span><span class="seat-index">Later</span><span class="seat-title">Priest, then warrior</span></span>' +
-      '<span class="chev' + (laterOpen ? " is-open" : "") + '">' + icon("chevron") + "</span></button>" +
-      '<div class="fold-body' + (laterOpen ? "" : " is-shut") + '"><p>Add these after the account has about 20–25 Legacy Points and both of you are comfortable in dungeons. They are not bad classes. They are bad places to learn the game.</p>' +
-      '<div class="later-pair"><div><h3>' + className("priest") + "</h3><p>" + esc(CLASS_INFO.priest.blurb) + "</p></div>" +
-      "<div><h3>" + className("warrior") + "</h3><p>" + esc(CLASS_INFO.warrior.blurb) + "</p></div></div>" +
-      "<p>After those two, any class you skipped: rogue, shaman, warlock, or the starter you did not pick. " + ext(LINKS.shaman, "Shaman notes") + " if that one comes up. Warlock stays optional.</p></div></article></section>" +
-      '<section id="points" class="block"><h2>Points, spending, and the mailbox</h2><div class="mech-grid">' +
-      '<article class="panel"><h3>Where a point comes from ' + tip("sources", "Each listed challenge awards one Legacy Point to the account. Cosmetic rewards at 15, 25, 40, and 55 use points earned, whether or not you have spent them.") + "</h3>" +
-      "<table><thead><tr><th scope=\"col\">Source</th><th scope=\"col\">When</th><th scope=\"col\">Points</th></tr></thead><tbody>" +
-      "<tr><td>" + ext(classHref(3), "Class level") + "</td><td>25, 45, and 60, once per class</td><td class=\"tabular\">1 each</td></tr>" +
-      "<tr><td>" + ext(skillHref(197), "Crafting profession") + "</td><td>150, 225, and 300 on each of the six crafts</td><td class=\"tabular\">1 each</td></tr>" +
-      "<tr><td>Gathering, cooking, fishing, first aid</td><td>Any skill</td><td class=\"tabular\">0</td></tr></tbody></table>" +
-      '<p class="panel-foot">Dungeons, exploration, raids, and PvP ranks also award points. Use them when they happen. Do not schedule the duo around them. ' + ext(LINKS.legacy, "Full challenge list") + "</p></article>" +
-      '<article class="panel"><h3>What to buy first</h3><ol class="spend">' +
-      '<li><span class="spend-rank">5</span><div><p class="spend-name">Working Overtime ' + tip("overtime", "Professions tree. Each rank adds 4% chance to gain a skill point when you use a primary, secondary, or class tradeskill. Five ranks is +20%. It does not create extra items.") + "</p><p>On anyone raising a profession. This is why the first crafts reach 150 faster.</p></div></li>" +
-      '<li><span class="spend-rank">5</span><div><p class="spend-name">Well Rested ' + tip("rested", "Adventure tree. Each rank makes rested experience build 4% faster and raises the rested cap by 4%. Five ranks is +20%. You still have to log out in an inn.") + "</p><p>On anyone you are leveling. The inn rotation is worth more after this.</p></div></li>" +
-      '<li><span class="spend-rank dim">6</span><div><p class="spend-name">Leave these</p><p>The launch cap is 16 spent points per character. Points are earned once for the account, and characters can spend them differently. Save the last six until you feel a specific gap.</p></div></li></ol>' +
-      '<p class="panel-foot">Respec is described as a class-trainer option. Confirm the cost in game; it moved during beta. ' + ext(LINKS.calculator, "Legacy calculator") + "</p></article></div>" +
-      '<div class="split"><article class="panel"><h3>' + icon("moon") + " Rested rotation</h3><ol class=\"plain-list\">" +
-      "<li>Finish a session in a town. Hearth if you have to.</li><li>Log out inside the inn, not at the front door and not in the wild.</li>" +
-      "<li>Next session, play whoever has rested experience, or whoever has a craft ready to skill.</li><li>When that rest is gone, park them and wake the next character.</li></ol>" +
-      '<p class="panel-foot">Camping tents from leatherworking can also grant a small rested bump. ' + ext(LINKS.camping, "Camping overview") + "</p></article>" +
-      '<article class="panel"><h3>Mailbox routes</h3><ul class="routes">' +
-      "<li><span>Herbs</span><span>Gatherer → alchemist</span></li><li><span>Ore</span><span>Miner → blacksmith, later engineer</span></li>" +
-      "<li><span>Leather</span><span>Skinner → leatherworker</span></li><li><span>Greens</span><span>Everyone → enchanter. Do not vendor them.</span></li>" +
-      "<li><span>Bags</span><span>Tailor → whoever is out of space</span></li></ul>" +
-      '<p class="panel-foot">Skinning news, if you were both planning to skin the same kills: ' + ext(LINKS.skinningChange, "one skin per corpse") + ".</p></article></div></section>" +
-      '<section id="phases" class="block"><div class="section-head"><h2>Phase tracker</h2>' +
-      '<button type="button" class="text-btn" data-action="clear"' + (done === 0 ? " disabled" : "") + ">Clear checks</button></div>" +
-      '<p class="section-lead">Checks stay in this browser. Work top to bottom. The early goal is level 20–25 and crafting skill 150, not a pile of alts at 60.</p>' +
-      '<div class="phases">' + phases + "</div></section>" +
-      '<section id="summary" class="block"><div class="section-head"><h2>Copy this</h2><div class="summary-actions">' +
-      '<button type="button" class="btn" data-action="copy">' + icon(copied ? "check" : "copy") + (copied ? "Copied" : "Copy summary") + "</button>" +
-      '<button type="button" class="btn btn-quiet" data-action="print">' + icon("printer") + "Print</button></div></div>" +
-      '<p class="section-lead">The text follows the roster you picked above. Paste it into a note you both can see.</p>' +
-      '<pre class="summary-pre" id="summary-text">' + esc(summary) + "</pre></section></main>" +
-      '<footer class="foot"><div class="foot-inner"><div><p class="kicker">Sources</p><h2>Further reading</h2>' +
-      "<p>Rules on this page follow Wowhead’s Forever coverage and Blizzard’s launch notes. Profession trainers, recipes, and a few perk costs were still moving in beta. If a line here disagrees with the client, trust the client.</p></div>" +
-      '<ul class="sources">' +
-      "<li>" + ext(LINKS.legacy, "Legacy system overview") + "<span>Wowhead Forever</span></li>" +
-      "<li>" + ext(LINKS.pointsNews, "How Legacy Points work") + "<span>Wowhead news</span></li>" +
-      "<li>" + ext(LINKS.explained, "Legacy system explained") + "<span>Wowhead news</span></li>" +
-      "<li>" + ext(LINKS.calculator, "Legacy calculator") + "<span>Wowhead Forever</span></li>" +
-      "<li>" + ext(LINKS.professions, "Profession guides") + "<span>Wowhead Forever</span></li>" +
-      "<li>" + ext(LINKS.blizzard, "World of Warcraft: Forever") + "<span>Blizzard</span></li>" +
-      "<li>" + ext(LINKS.blizzardNews, "Pre-purchase and launch timing") + "<span>Blizzard News</span></li></ul>" +
-      '<p class="legal">' + icon("book") + " Fan planning aid. Not affiliated with Blizzard Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc.</p></div></footer></div>";
+    var summary = [
+      "WoW Forever Legacy Optimization Plan",
+      "Mode: " + (state.mode === "duo" ? "Duo, separate accounts" : "Solo"),
+      "Preferred class: " + label(state.playstyle),
+      "Faction filter: " + state.faction,
+      saved.length ? "Saved characters" : "Suggested characters (not saved)",
+      "Suggested phase: " + phaseTitle
+    ].join("\n");
+    return '<section id="points" class="block"><h2>Points, spending, and the mailbox</h2><div class="mech-grid"><article class="panel"><h3>Where a point comes from</h3><table><thead><tr><th>Source</th><th>When</th><th>Points</th></tr></thead><tbody><tr><td>Class level</td><td>25, 45, and 60, once per class on that account</td><td class="tabular">1 each</td></tr><tr><td>Crafting profession</td><td>150, 225, and 300 on each of the six crafts</td><td class="tabular">1 each</td></tr><tr><td>Gathering, cooking, fishing, first aid</td><td>Any skill</td><td class="tabular">0</td></tr></tbody></table><p class="panel-foot"><a class="ext" href="https://www.wowhead.com/forever/guide/legacy-system-overview-rewards" target="_blank" rel="noopener noreferrer">Full challenge list</a></p></article><article class="panel"><h3>What to buy first</h3><ol class="spend"><li><span class="spend-rank">5</span><div><p class="spend-name">Working Overtime</p><p>On anyone raising a profession. Each rank adds 4% chance to gain a skill point.</p></div></li><li><span class="spend-rank">5</span><div><p class="spend-name">Well Rested</p><p>On anyone you are leveling. You still log out in an inn.</p></div></li><li><span class="spend-rank dim">6</span><div><p class="spend-name">Leave these</p><p>Launch cap is 16 spent points per character. Save the last six.</p></div></li></ol><p class="panel-foot"><a class="ext" href="https://www.wowhead.com/forever/legacy-calculator" target="_blank" rel="noopener noreferrer">Legacy calculator</a></p></article></div><div class="split"><article class="panel"><h3>Rested rotation</h3><ol class="plain-list"><li>Finish a session in a town.</li><li>Log out inside the inn.</li><li>Next session, play whoever is rested, or whoever has a craft ready to skill.</li><li>Mark rested or spent on the character so the advice can tell you who to park.</li></ol><p class="panel-foot"><a class="ext" href="https://www.wowhead.com/forever/guide/camping-overview-unlock-rewards" target="_blank" rel="noopener noreferrer">Camping overview</a></p></article><article class="panel"><h3>Mailbox</h3><ul class="routes"><li><span>Herbs</span><span>Gatherer to alchemist</span></li><li><span>Ore</span><span>Miner to blacksmith, later engineer</span></li><li><span>Leather</span><span>Skinner to leatherworker</span></li><li><span>Greens</span><span>To the enchanter. Do not vendor them.</span></li><li><span>Across accounts</span><span>Same faction only.</span></li></ul><p class="panel-foot"><a class="ext" href="https://www.wowhead.com/forever/news/skinning-no-longer-group-wide-in-latest-wow-forever-beta-build-383226" target="_blank" rel="noopener noreferrer">One skin per corpse</a></p></article></div></section>' +
+      '<section id="phases" class="block"><div class="section-head"><h2>Phase tracker</h2><button type="button" class="text-btn" data-action="clear">Clear checks</button></div><p class="section-lead">Check these off as you go. From your highest saved level, the current step is ' + esc(phaseTitle) + '.</p><div class="phases">' + phases + '</div></section>' +
+      '<section id="summary" class="block"><div class="section-head"><h2>Copy this</h2><div class="summary-actions"><button type="button" class="btn" data-action="copy">Copy summary</button><button type="button" class="btn btn-quiet" data-action="print">Print</button></div></div><pre class="summary-pre" id="summary-text">' + esc(summary) + '</pre></section>';
   }
 
-  function persist() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  function markup() {
+    var built = plan();
+    var saved = state.characters.filter(function (character) { return character.owner === "me"; });
+    var scored = saved.length ? saved.map(function (character) { return {classKey:character.classKey, profs:character.profs.map(function (slot) { return slot.name; }).filter(Boolean)}; }) : built.me;
+    var board = coverage(scored);
+    var lines = advice(built);
+    var starts = built.starts.map(function (start) {
+      return '<article class="panel"><p class="kicker">' + esc(start.faction) + '</p><h3>Start in ' + esc(start.zone) + '</h3><p>You: ' + esc(start.you.name) + ' ' + esc(label(state.playstyle)) + '.' +
+        (start.partner ? ' Partner: ' + esc(start.partner.name) + ' ' + esc(label(state.partner.classKey)) + '.' : '') +
+        (start.different ? ' Different races, same first zone.' : ' Same race is how these classes share a start.') +
+        (start.pack ? ' Skyborne needs the heroic pack.' : '') + '</p></article>';
+    }).join("");
+    var suggest = built.me.concat(state.mode === "duo" ? built.partner : []).map(function (item, index) {
+      var buttons = item.options && item.options.length > 1
+        ? '<div class="choice-row">' + item.options.map(function (pair) {
+            var id = pair[0] + "|" + pair[1];
+            var on = item.profs.join("|") === id;
+            return '<button type="button" class="choice-opt' + (on ? " is-on" : "") + '" data-pair="' + esc(item.owner + ":" + item.classKey) + '" data-pick="' + esc(id) + '">' + esc(pair[0] + " + " + pair[1]) + "</button>";
+          }).join("") + "</div>"
+        : '<span class="check-detail">' + esc(item.profs.join(" + ")) + "</span>";
+      return '<li><div><strong>' + esc(item.owner === "me" ? "You" : "Partner") + " · " + esc(item.role) + " · " + esc(label(item.classKey)) + '</strong><span class="check-detail">' + esc(item.why) + "</span>" + buttons + '</div><button type="button" class="text-btn" data-save-suggest="' + index + '">Save</button></li>';
+    }).join("");
+    var rows = state.characters.map(function (character) {
+      return '<li><div><strong>' + esc(character.name || label(character.classKey)) + '</strong><span> ' + esc(label(character.classKey)) + ' · ' + character.level + ' · ' + esc(character.faction) + ' · ' + (character.owner === "me" ? "You" : "Partner") + (character.source === "battlenet" ? " · Battle.net" : "") + '</span><span class="check-detail">' + esc(character.profs.filter(function (slot) { return slot.name; }).map(function (slot) { return slot.name + " " + slot.skill; }).join(" · ") || "No professions") + '</span></div><div><button type="button" class="text-btn" data-edit="' + esc(character.id) + '">Edit</button><button type="button" class="text-btn" data-remove="' + esc(character.id) + '">Remove</button></div></li>';
+    }).join("");
+    var form = "";
+    if (draft) {
+      var races = RACES.filter(function (race) { return race.faction === draft.faction && race.classes.indexOf(draft.classKey) !== -1; });
+      form = '<form class="panel character-form" data-form="1"><h3>' + (draft.name ? "Edit" : "New character") + '</h3><div class="setup-grid">' +
+        '<label class="field">Name<input name="name" value="' + esc(draft.name) + '"></label>' +
+        '<label class="field">Class<select name="classKey">' + options(CLASSES, draft.classKey) + '</select></label>' +
+        '<label class="field">Level<input name="level" type="number" min="1" max="60" value="' + draft.level + '"></label>' +
+        '<label class="field">Faction<select name="faction"><option value="alliance"' + (draft.faction === "alliance" ? " selected" : "") + '>Alliance</option><option value="horde"' + (draft.faction === "horde" ? " selected" : "") + '>Horde</option></select></label>' +
+        '<label class="field">Race<select name="raceId"><option value="">Unset</option>' + races.map(function (race) { return '<option value="' + race.id + '"' + (draft.raceId === race.id ? " selected" : "") + '>' + esc(race.name) + '</option>'; }).join("") + '</select></label>' +
+        '<label class="field">Role<select name="role"><option value="main"' + (draft.role === "main" ? " selected" : "") + '>Main</option><option value="alt"' + (draft.role === "alt" ? " selected" : "") + '>Alt</option></select></label>' +
+        (state.mode === "duo" ? '<label class="field">Whose<select name="owner"><option value="me"' + (draft.owner === "me" ? " selected" : "") + '>Mine</option><option value="partner"' + (draft.owner === "partner" ? " selected" : "") + '>Partner</option></select></label>' : '') +
+        '<label class="field">Rested<select name="rested"><option value="unknown">Unknown</option><option value="rested"' + (draft.rested === "rested" ? " selected" : "") + '>Rested</option><option value="spent"' + (draft.rested === "spent" ? " selected" : "") + '>Spent</option></select></label>' +
+        draft.profs.map(function (slot, index) {
+          return '<label class="field">Profession ' + (index + 1) + '<span class="prof-slot"><select name="prof' + index + '"><option value="">None</option>' + PROFS.map(function (name) { return '<option' + (slot.name === name ? " selected" : "") + '>' + name + '</option>'; }).join("") + '</select><input name="skill' + index + '" type="number" min="0" max="300" value="' + slot.skill + '"></span></label>';
+        }).join("") +
+        '</div><div class="summary-actions"><button class="btn" type="submit">Save character</button><button class="btn btn-quiet" type="button" data-action="cancel">Cancel</button></div></form>';
+    }
+    return '<div class="page"><header class="topbar"><div class="topbar-inner"><a class="brand" href="#top"><span class="brand-mark"></span>Legacy Optimization Plan</a><nav class="nav"><a href="#overview">Overview</a><a href="#roster">Roster</a><a href="#points">Points</a><a href="#phases">Phases</a><a href="#summary">Summary</a></nav><p class="topbar-progress tabular"><span class="topbar-count">' + doneCount() + '</span><span class="topbar-of"> / ' + PHASES.reduce(function (n, phase) { return n + phase.items.length; }, 0) + ' steps</span></p></div></header><main id="top"><section class="hero"><p class="kicker">World of Warcraft: Forever</p><h1>Legacy Optimization Plan</h1><p class="lede">Earn Legacy Points from professions and class levels, on classes you already like. Save the classes you are less comfortable with for later, when you are more familiar with the game.</p><dl class="stats"><div><dt>Profession points</dt><dd class="tabular">18</dd></div><div><dt>Crafting professions</dt><dd class="tabular">6</dd></div><div><dt>Spend cap at launch</dt><dd class="tabular">16</dd></div><div><dt>Class milestones</dt><dd class="tabular">25 / 45 / 60</dd></div></dl></section>' +
+      '<section id="overview" class="block"><h2>How this plan works</h2><div class="steps"><article><p class="step-no">01</p><h3>Start with a class you like</h3><p>Pick the class you will actually play. The suggestion below follows that choice.</p></article><article><p class="step-no">02</p><h3>Learn the six crafting professions</h3><p>Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking, and Tailoring each give a point at skill 150, 225, and 300. Herbalism, Mining, and Skinning do not.</p></article><article><p class="step-no">03</p><h3>Do not gather the same thing</h3><p>Stay the same faction if you want to mail items or play together. Give the two characters you play at the same time different gathering skills.</p></article></div><p class="note">The profession plan follows Ceedsy’s comfort-first alt army: start on a class you like, cover the crafting professions on your characters, and save the classes you are less comfortable with for later. <a class="ext" href="https://youtu.be/rAcXmhon5Oo" target="_blank" rel="noopener noreferrer">Ceedsy’s video</a> Launch is November 4, 2026. <a class="ext" href="https://news.blizzard.com/en-us/article/24301508/pre-purchase-world-of-warcraft-forever-upgrades-and-begin-your-next-journey-in-azeroth" target="_blank" rel="noopener noreferrer">Launch notes</a></p></section>' +
+      '<section id="roster" class="block"><div class="section-head"><h2>Your plan</h2><button type="button" class="text-btn" data-action="reset">Reset</button></div>' +
+      '<p class="section-lead">Choose a class. The suggestion updates when you change it. Add characters after you create them so the plan can use their levels.</p><div class="setup-grid">' +
+      radio("mode", state.mode, [{id:"solo",label:"Just me"},{id:"duo",label:"I play with a duo partner"}]) +
+      radio("faction", state.faction, [{id:"both",label:"Show both"},{id:"alliance",label:"Alliance"},{id:"horde",label:"Horde"}]) +
+      '<label class="field">What’s your preferred playstyle / class?<select data-playstyle="1">' + options(CLASSES, state.playstyle) + '</select></label></div>' +
+      (state.mode === "duo" ? '<div class="setup-grid"><label class="field">Partner’s class<select data-partner-class="1">' + options(CLASSES, state.partner.classKey) + '</select></label>' +
+        '<fieldset class="choice"><legend>Partner’s gathering</legend><div class="choice-row">' + GATHERS.map(function (name) {
+          var on = state.partner.gathering.indexOf(name) !== -1;
+          return '<button type="button" class="choice-opt' + (on ? " is-on" : "") + '" data-gather="' + name + '">' + name + "</button>";
+        }).join("") + '</div></fieldset>' +
+        radio("pfaction", state.partner.faction || "same", [{id:"same",label:"Same as the plan"},{id:"alliance",label:"Alliance"},{id:"horde",label:"Horde"}]) + '</div>' : '') +
+      '<div class="starts">' + (starts || '<p class="card-note">Those classes do not share a starting zone on that faction.</p>') + '</div>' +
+      '<div class="advice">' + lines.map(function (line) { return "<p>" + esc(line) + "</p>"; }).join("") + '</div>' +
+      '<h3>Suggestion</h3><ul class="roster-list">' + suggest + '</ul>' +
+      '<div class="section-head"><h2>Characters</h2><button type="button" class="text-btn" data-action="add">Add character</button></div>' +
+      (rows ? '<ul class="roster-list">' + rows + '</ul>' : '<p class="section-lead">Add characters as you create them. Until then, this list is a suggestion.</p>') +
+      form +
+      '<div class="board"><div class="board-head"><h3>' + (saved.length ? "Your saved coverage" : "Suggested coverage") + '</h3><p class="tabular board-total">' + board.total + '<span> early points</span></p></div>' +
+      '<ul class="craft-grid">' + board.crafts.map(function (craft) { return '<li class="craft' + (craft.holders.length ? " is-on" : "") + '"><span>' + wh(craft.name) + '</span><span class="craft-who">' + esc(craft.holders.join(", ") || "Not covered") + '</span></li>'; }).join("") + '</ul><ul class="gather-row">' + GATHERS.map(function (name) {
+        var holders = scored.filter(function (item) { return item.profs.indexOf(name) !== -1; }).map(function (item) { return item.name || label(item.classKey); });
+        return '<li><span>' + wh(name) + '</span><span>' + esc(holders.filter(Boolean).join(", ") || "Nobody") + '</span></li>';
+      }).join("") + '</ul></div>' +
+      '<div class="summary-actions"><button type="button" class="btn" data-action="partner">Copy partner card</button><button type="button" class="btn btn-quiet" data-action="backup">Copy JSON</button></div>' +
+      '<label class="field">Import JSON<textarea data-import="1">' + esc(importText) + '</textarea></label><button type="button" class="btn" data-action="import">Import</button>' +
+      (note ? '<p class="card-note">' + esc(note) + '</p>' : '') +
+      '</section>' +
+      tail(board, saved) +
+      '</main><footer class="foot"><div class="foot-inner"><p class="kicker">Sources</p><h2>Further reading</h2><ul class="sources">' +
+      '<li><a class="ext" href="https://www.wowhead.com/forever/guide/legacy-system-overview-rewards" target="_blank" rel="noopener noreferrer">Legacy system overview</a><span>Wowhead Forever</span></li>' +
+      '<li><a class="ext" href="https://www.wowhead.com/forever/news/how-do-legacy-points-work-in-wow-forever-383029" target="_blank" rel="noopener noreferrer">How Legacy Points work</a><span>Wowhead news</span></li>' +
+      '<li><a class="ext" href="https://www.wowhead.com/forever/legacy-calculator" target="_blank" rel="noopener noreferrer">Legacy calculator</a><span>Wowhead Forever</span></li>' +
+      '<li><a class="ext" href="https://worldofwarcraft.blizzard.com/en-us/forever" target="_blank" rel="noopener noreferrer">World of Warcraft: Forever</a><span>Blizzard</span></li>' +
+      '</ul><p class="legal">Fan planning aid. Not affiliated with Blizzard Entertainment.</p></div></footer></div>';
   }
 
   function render() {
     var y = window.scrollY;
+    var focus = document.activeElement && document.activeElement.getAttribute && (document.activeElement.getAttribute("data-import"));
     document.getElementById("app").innerHTML = markup();
-    window.scrollTo(0, y);
+    if (!focus) window.scrollTo(0, y);
+  }
+
+  function readForm(form) {
+    var data = new FormData(form);
+    draft.name = String(data.get("name") || "");
+    draft.classKey = String(data.get("classKey") || draft.classKey);
+    draft.level = Number(data.get("level")) || 1;
+    draft.faction = data.get("faction") === "horde" ? "horde" : "alliance";
+    draft.raceId = String(data.get("raceId") || "");
+    draft.role = data.get("role") === "main" ? "main" : "alt";
+    draft.owner = data.get("owner") === "partner" ? "partner" : "me";
+    draft.rested = data.get("rested") === "rested" || data.get("rested") === "spent" ? data.get("rested") : "unknown";
+    draft.profs = [0, 1].map(function (index) {
+      return {name: String(data.get("prof" + index) || ""), skill: Number(data.get("skill" + index)) || 0};
+    });
   }
 
   document.getElementById("app").addEventListener("click", function (event) {
-    var tipBtn = event.target.closest("[data-tip]");
-    if (tipBtn) {
-      var id = tipBtn.getAttribute("data-tip");
-      openTip = openTip === id ? "" : id;
-      render();
-      return;
+    var set = event.target.closest("[data-set]");
+    if (set) {
+      var group = set.getAttribute("data-set");
+      var value = set.getAttribute("data-value");
+      if (group === "mode") state.mode = value;
+      if (group === "faction") state.faction = value;
+      if (group === "pfaction") state.partner.faction = value === "same" ? "" : value;
+      save(); render(); return;
     }
-    if (!event.target.closest(".tip")) openTip = "";
-
-    var fold = event.target.closest("[data-fold]");
-    if (fold) {
-      var key = fold.getAttribute("data-fold");
-      open[key] = !open[key];
-      render();
-      return;
+    var gather = event.target.closest("[data-gather]");
+    if (gather) {
+      var name = gather.getAttribute("data-gather");
+      var has = state.partner.gathering.indexOf(name) !== -1;
+      state.partner.gathering = has ? state.partner.gathering.filter(function (item) { return item !== name; }) : state.partner.gathering.concat(name).slice(0, 2);
+      save(); render(); return;
     }
-    var choiceBtn = event.target.closest("[data-choice]");
-    if (choiceBtn) {
-      state[choiceBtn.getAttribute("data-choice")] = choiceBtn.getAttribute("data-value");
-      persist();
-      render();
+    var action = event.target.closest("[data-action]");
+    if (action) {
+      var kind = action.getAttribute("data-action");
+      if (kind === "reset") { var checks = state.checks; state = load(null); state.checks = checks; save(); render(); }
+      if (kind === "add") { draft = cleanChar({classKey:state.playstyle, role: state.characters.some(function (character) { return character.owner === "me" && character.role === "main"; }) ? "alt" : "main", faction: state.faction === "horde" ? "horde" : "alliance"}); render(); }
+      if (kind === "cancel") { draft = null; render(); }
+      if (kind === "partner") {
+        var card = {kind:"duo-legacy-partner", classKey:state.playstyle, mainClass:state.playstyle, gathering: plan().me[0].profs.filter(function (name) { return GATHERS.indexOf(name) !== -1; }), faction: state.faction === "both" ? "" : state.faction};
+        importText = JSON.stringify(card);
+        navigator.clipboard && navigator.clipboard.writeText(importText);
+        note = "Partner card copied. Class, gathering, and faction only.";
+        render();
+      }
+      if (kind === "backup") {
+        importText = JSON.stringify({kind:"duo-legacy-plan", mode:state.mode, playstyle:state.playstyle, faction:state.faction, partner:state.partner, characters:state.characters, checks:state.checks, pairPicks:state.pairPicks});
+        navigator.clipboard && navigator.clipboard.writeText(importText);
+        note = "Backup copied.";
+        render();
+      }
+      if (kind === "import") {
+        try { state = load(importText); save(); note = "Imported."; }
+        catch (err) { note = "That text is not valid JSON."; }
+        render();
+      }
+      if (kind === "clear") { state.checks = {}; save(); render(); }
+      if (kind === "copy") {
+        var node = document.getElementById("summary-text");
+        var text = node ? node.textContent : "";
+        if (navigator.clipboard) navigator.clipboard.writeText(text);
+        note = "Summary copied.";
+        render();
+      }
+      if (kind === "print") window.print();
       return;
     }
     var check = event.target.closest("[data-check]");
     if (check) {
-      var checkId = check.getAttribute("data-check");
-      state.checks[checkId] = !state.checks[checkId];
-      if (!state.checks[checkId]) delete state.checks[checkId];
-      persist();
+      var id = check.getAttribute("data-check");
+      state.checks[id] = !state.checks[id];
+      save();
       render();
       return;
     }
-    var action = event.target.closest("[data-action]");
-    if (!action || action.disabled) return;
-    var name = action.getAttribute("data-action");
-    if (name === "reset") {
-      var checks = state.checks;
-      state = Object.assign({}, DEFAULT_STATE, { checks: checks });
-      persist();
+    var pairBtn = event.target.closest("[data-pair]");
+    if (pairBtn) {
+      state.pairPicks[pairBtn.getAttribute("data-pair")] = pairBtn.getAttribute("data-pick");
+      save();
       render();
-    } else if (name === "clear") {
-      state.checks = {};
-      persist();
-      render();
-    } else if (name === "print") {
-      window.print();
-    } else if (name === "copy") {
-      var text = buildSummary(state);
-      var doneCopy = function () {
-        copied = true;
-        render();
-        window.setTimeout(function () { copied = false; render(); }, 2000);
-      };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(doneCopy).catch(function () {
-          var node = document.getElementById("summary-text");
-          var range = document.createRange();
-          range.selectNodeContents(node);
-          var selection = window.getSelection();
-          selection.removeAllRanges();
-          selection.addRange(range);
-          document.execCommand("copy");
-          selection.removeAllRanges();
-          doneCopy();
-        });
+      return;
+    }
+    var saveSuggest = event.target.closest("[data-save-suggest]");
+    if (saveSuggest) {
+      var built = plan();
+      var all = built.me.concat(state.mode === "duo" ? built.partner : []);
+      var item = all[Number(saveSuggest.getAttribute("data-save-suggest"))];
+      if (item) {
+        state.characters.push(cleanChar({classKey:item.classKey, role:item.role, owner:item.owner, faction: state.faction === "horde" ? "horde" : "alliance", profs:item.profs.map(function (name) { return {name:name, skill:0}; })}));
+        save(); render();
       }
+      return;
     }
+    var edit = event.target.closest("[data-edit]");
+    if (edit) { draft = state.characters.filter(function (character) { return character.id === edit.getAttribute("data-edit"); })[0]; render(); }
+    var remove = event.target.closest("[data-remove]");
+    if (remove) { state.characters = state.characters.filter(function (character) { return character.id !== remove.getAttribute("data-remove"); }); save(); render(); }
   });
-
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && openTip) {
-      openTip = "";
-      render();
-    }
+  document.getElementById("app").addEventListener("change", function (event) {
+    if (event.target.matches("[data-playstyle]")) { state.playstyle = event.target.value; save(); render(); }
+    if (event.target.matches("[data-partner-class]")) { state.partner.classKey = event.target.value; save(); render(); }
+    if (event.target.matches("[data-import]")) importText = event.target.value;
+  });
+  document.getElementById("app").addEventListener("submit", function (event) {
+    if (!event.target.matches("[data-form]")) return;
+    event.preventDefault();
+    readForm(event.target);
+    var next = cleanChar(draft);
+    var exists = state.characters.some(function (character) { return character.id === next.id; });
+    state.characters = exists ? state.characters.map(function (character) { return character.id === next.id ? next : character; }) : state.characters.concat(next);
+    draft = null; save(); render();
   });
 
   render();
