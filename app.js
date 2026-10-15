@@ -11,10 +11,17 @@ const RACE_CLASS_MATRIX = {
   "Skyborne (Windshaper)": { faction: "Horde", classes: ["Warrior", "Hunter", "Rogue", "Druid", "Shaman"], start: "Zephras Isle" }
 };
 
-const NEW_COMBOS = ["Human Hunter", "Dwarf Shaman", "Gnome Priest", "Orc Mage", "Troll Warlock", "Undead Paladin"];
 const CRAFTING_PROFS = ["Alchemy", "Blacksmithing", "Enchanting", "Engineering", "Leatherworking", "Tailoring"];
 const GATHERING_PROFS = ["Herbalism", "Mining", "Skinning"];
 const ALL_CLASSES = ["Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid"];
+
+const ROLE_CLASSES = {
+  "Tank": ["Warrior", "Paladin", "Druid"],
+  "Melee DPS": ["Warrior", "Rogue", "Paladin", "Druid", "Shaman"],
+  "Ranged DPS": ["Hunter", "Mage", "Warlock", "Priest", "Shaman"],
+  "Healing": ["Priest", "Paladin", "Druid", "Shaman"]
+};
+
 const STORAGE_KEY = "wowForeverLegacyPlan";
 
 let state = {
@@ -41,10 +48,6 @@ function getValidClasses(race) {
   return RACE_CLASS_MATRIX[race]?.classes || [];
 }
 
-function isNewCombo(race, cls) {
-  return NEW_COMBOS.includes(`${race} ${cls}`);
-}
-
 function getStartingArea(race) {
   return RACE_CLASS_MATRIX[race]?.start || "Unknown";
 }
@@ -55,16 +58,15 @@ function renderRoster() {
   container.innerHTML = "";
 
   if (state.characters.length === 0) {
-    container.innerHTML = "<p class='muted'>No characters yet. Add one or select a playstyle above.</p>";
+    container.innerHTML = "<p class='muted'>No characters yet. Add one or select a role above.</p>";
     return;
   }
 
   state.characters.forEach((char, idx) => {
     const div = document.createElement("div");
     div.className = "char-card";
-    const newBadge = isNewCombo(char.race, char.class) ? '<span class="badge new">New</span>' : "";
     div.innerHTML = `
-      <strong>${char.name || "Unnamed"}</strong> ${newBadge}
+      <strong>${char.name || "Unnamed"}</strong>
       — ${char.race || "?"} ${char.class || "?"} (Lvl ${char.level || 1})
       <span class="badge">${char.faction || "?"}</span>
       <div class="muted small">
@@ -96,7 +98,7 @@ function renderRoster() {
 
 function editCharacter(idx) {
   const existing = idx >= 0 ? { ...state.characters[idx] } : {
-    name: "", race: "Human", class: "Hunter", level: 1,
+    name: "", race: "Human", class: "Warrior", level: 1,
     faction: "Alliance", prof1: "", prof1Level: 0, prof2: "", prof2Level: 0, role: "Main"
   };
 
@@ -192,8 +194,12 @@ function getCoveredCrafting() {
 
 function getRecommendations() {
   const lines = [];
-  const playstyle = state.playstyle || state.characters[0]?.class || "Flexible";
-  lines.push(`<strong>Preferred style:</strong> ${playstyle}`);
+  const playstyle = state.playstyle || "any role";
+  lines.push(`<strong>Preferred role:</strong> ${playstyle}`);
+
+  if (state.playstyle && ROLE_CLASSES[state.playstyle]) {
+    lines.push(`Suitable classes: ${ROLE_CLASSES[state.playstyle].join(", ")}`);
+  }
 
   if (state.characters.length > 0) {
     const main = state.characters.find(c => (c.role || "").toLowerCase().includes("main")) || state.characters[0];
@@ -231,7 +237,7 @@ function renderRecommendations() {
   const el = document.getElementById("recommendations");
   if (!el) return;
   if (!state.playstyle && state.characters.length === 0) {
-    el.innerHTML = "Select a playstyle or add a character to generate recommendations.";
+    el.innerHTML = "Select a role or add a character to generate recommendations.";
     return;
   }
   el.innerHTML = `<ul>${getRecommendations()}</ul>`;
@@ -271,7 +277,7 @@ function bindEvents() {
   const exportBtn = document.getElementById("export-duo");
   if (exportBtn) exportBtn.onclick = () => {
     const data = {
-      preferredClass: state.playstyle || state.characters[0]?.class || "",
+      preferredRole: state.playstyle || "",
       gathering: state.characters.find(c => GATHERING_PROFS.includes(c.prof1))?.prof1 ||
                  state.characters.find(c => GATHERING_PROFS.includes(c.prof2))?.prof2 || "",
       faction: state.characters[0]?.faction || "Alliance"

@@ -100,8 +100,6 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
   font-weight: 600;
 }
 
-.badge.new { background: #4ade80; }
-
 .muted { color: var(--muted); }
 .small { font-size: 0.9rem; }
 
