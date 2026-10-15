@@ -85,6 +85,32 @@
       <div id="roster"></div>
       <button id="add-char">+ Add Character</button>
       <button class="secondary" id="reset-all">Reset All Data</button>
+
+      <div id="char-form" class="hidden">
+        <h3 id="form-title">Add Character</h3>
+        <label for="char-name">Name</label>
+        <input type="text" id="char-name" placeholder="Character name">
+
+        <label for="char-race">Race</label>
+        <select id="char-race"></select>
+
+        <label for="char-class">Class</label>
+        <select id="char-class"></select>
+
+        <label for="char-level">Level</label>
+        <input type="number" id="char-level" min="1" max="60" value="1">
+
+        <label for="char-role">Role</label>
+        <select id="char-role">
+          <option>Main</option>
+          <option>Alt</option>
+        </select>
+
+        <div class="actions">
+          <button id="save-char">Save</button>
+          <button id="cancel-char" class="secondary">Cancel</button>
+        </div>
+      </div>
     </div>
 
     <div class="card hidden" id="duo-section">

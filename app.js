@@ -32,6 +32,8 @@ let state = {
   duoPartner: null
 };
 
+let editingIndex = -1;
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -76,6 +78,61 @@ function updateClassDropdown() {
   }
 }
 
+function populateRaceDropdown() {
+  const select = document.getElementById("char-race");
+  const races = getRacesForFaction(state.faction);
+  select.innerHTML = races.map(r => `<option value="${r}">${r}</option>`).join("");
+  updateCharClassDropdown();
+}
+
+function updateCharClassDropdown() {
+  const race = document.getElementById("char-race").value;
+  const select = document.getElementById("char-class");
+  const valid = getValidClasses(race);
+  select.innerHTML = valid.map(c => `<option value="${c}">${c}</option>`).join("");
+}
+
+function showCharForm(idx = -1) {
+  editingIndex = idx;
+  const form = document.getElementById("char-form");
+  const title = document.getElementById("form-title");
+  form.classList.remove("hidden");
+
+  populateRaceDropdown();
+
+  if (idx >= 0) {
+    const char = state.characters[idx];
+    title.textContent = "Edit Character";
+    document.getElementById("char-name").value = char.name || "";
+    document.getElementById("char-race").value = char.race || "";
+    updateCharClassDropdown();
+    document.getElementById("char-class").value = char.class || "";
+    document.getElementById("char-level").value = char.level || 1;
+    document.getElementById("char-role").value = char.role || "Main";
+  } else {
+    title.textContent = "Add Character";
+    document.getElementById("char-name").value = "";
+    document.getElementById("char-level").value = 1;
+    document.getElementById("char-role").value = "Main";
+    if (state.preferredClass) {
+      const raceSelect = document.getElementById("char-race");
+      for (const opt of raceSelect.options) {
+        if (getValidClasses(opt.value).includes(state.preferredClass)) {
+          raceSelect.value = opt.value;
+          break;
+        }
+      }
+      updateCharClassDropdown();
+      document.getElementById("char-class").value = state.preferredClass;
+    }
+  }
+}
+
+function hideCharForm() {
+  document.getElementById("char-form").classList.add("hidden");
+  editingIndex = -1;
+}
+
 function renderRoster() {
   const container = document.getElementById("roster");
   if (!container) return;
@@ -107,7 +164,7 @@ function renderRoster() {
   });
 
   container.querySelectorAll("[data-edit]").forEach(btn => {
-    btn.onclick = () => editCharacter(+btn.dataset.edit);
+    btn.onclick = () => showCharForm(+btn.dataset.edit);
   });
   container.querySelectorAll("[data-remove]").forEach(btn => {
     btn.onclick = () => {
@@ -120,53 +177,6 @@ function renderRoster() {
   });
 }
 
-function editCharacter(idx) {
-  const existing = idx >= 0 ? { ...state.characters[idx] } : {
-    name: "", race: "", class: state.preferredClass || "", level: 1,
-    faction: state.faction === "Both" ? "Alliance" : (state.faction || "Alliance"),
-    prof1: "", prof1Level: 0, prof2: "", prof2Level: 0, role: "Main"
-  };
-
-  const name = prompt("Character name:", existing.name);
-  if (name === null) return;
-
-  const races = getRacesForFaction(state.faction);
-  const raceOptions = races.map(r => `<option value="${r}" ${r === existing.race ? "selected" : ""}>${r}</option>`).join("");
-  const raceSelect = document.createElement("select");
-  raceSelect.innerHTML = raceOptions;
-  const race = prompt("Race (select from list):\n" + races.join(", "), existing.race);
-  if (!race || !races.includes(race)) {
-    alert("Please choose a valid race for your faction.");
-    return;
-  }
-
-  const valid = getValidClasses(race);
-  const cls = prompt(`Class for ${race}:\n${valid.join(", ")}`, existing.class || state.preferredClass);
-  if (!cls || !valid.includes(cls)) {
-    alert("Invalid class for that race.");
-    return;
-  }
-
-  const level = parseInt(prompt("Level:", existing.level) || "1", 10) || 1;
-  const role = prompt("Role (Main / Alt):", existing.role || "Main") || "Main";
-
-  const updated = {
-    ...existing,
-    name: name.trim(),
-    race,
-    class: cls,
-    level,
-    faction: RACE_CLASS_MATRIX[race].faction,
-    role
-  };
-
-  if (idx >= 0) state.characters[idx] = updated;
-  else state.characters.push(updated);
-
-  saveState();
-  renderAll();
-}
-
 function renderDuo() {
   const section = document.getElementById("duo-section");
   if (!section) return;
@@ -176,14 +186,14 @@ function renderDuo() {
   const fields = document.getElementById("duo-partner-fields");
   if (!fields) return;
 
-  const p = state.duoPartner || { class: "", gathering: "", faction: state.faction || "Alliance" };
-  const faction = state.faction === "Both" ? "Alliance" : (state.faction || "Alliance");
+  const p = state.duoPartner || { class: "", gathering: "" };
+  const classes = state.playstyle && ROLE_CLASSES[state.playstyle] ? ROLE_CLASSES[state.playstyle] : Object.values(ROLE_CLASSES).flat();
 
   fields.innerHTML = `
     <label for="partner-class">Partner preferred class</label>
     <select id="partner-class">
       <option value="">Select</option>
-      ${ALL_CLASSES.map(c => `<option value="${c}" ${p.class === c ? "selected" : ""}>${c}</option>`).join("")}
+      ${[...new Set(classes)].map(c => `<option value="${c}" ${p.class === c ? "selected" : ""}>${c}</option>`).join("")}
     </select>
     <label for="partner-gather">Partner gathering profession</label>
     <select id="partner-gather">
@@ -196,7 +206,7 @@ function renderDuo() {
     state.duoPartner = {
       class: document.getElementById("partner-class").value,
       gathering: document.getElementById("partner-gather").value,
-      faction
+      faction: state.faction === "Both" ? "Alliance" : (state.faction || "Alliance")
     };
     saveState();
     renderRecommendations();
@@ -309,13 +319,57 @@ function bindEvents() {
   };
 
   const addBtn = document.getElementById("add-char");
-  if (addBtn) addBtn.onclick = () => editCharacter(-1);
+  if (addBtn) addBtn.onclick = () => showCharForm(-1);
+
+  const saveBtn = document.getElementById("save-char");
+  if (saveBtn) saveBtn.onclick = () => {
+    const name = document.getElementById("char-name").value.trim();
+    const race = document.getElementById("char-race").value;
+    const cls = document.getElementById("char-class").value;
+    const level = parseInt(document.getElementById("char-level").value, 10) || 1;
+    const role = document.getElementById("char-role").value;
+
+    if (!name) {
+      alert("Please enter a name.");
+      return;
+    }
+
+    const updated = {
+      name,
+      race,
+      class: cls,
+      level,
+      faction: RACE_CLASS_MATRIX[race].faction,
+      role,
+      prof1: "",
+      prof1Level: 0,
+      prof2: "",
+      prof2Level: 0
+    };
+
+    if (editingIndex >= 0) {
+      state.characters[editingIndex] = { ...state.characters[editingIndex], ...updated };
+    } else {
+      state.characters.push(updated);
+    }
+
+    saveState();
+    hideCharForm();
+    renderAll();
+  };
+
+  const cancelBtn = document.getElementById("cancel-char");
+  if (cancelBtn) cancelBtn.onclick = hideCharForm;
+
+  const raceSelect = document.getElementById("char-race");
+  if (raceSelect) raceSelect.onchange = updateCharClassDropdown;
 
   const resetBtn = document.getElementById("reset-all");
   if (resetBtn) resetBtn.onclick = () => {
     if (confirm("Reset all local data?")) {
       localStorage.removeItem(STORAGE_KEY);
       state = { duoMode: false, faction: "", playstyle: "", preferredClass: "", characters: [], duoPartner: null };
+      hideCharForm();
       renderAll();
     }
   };

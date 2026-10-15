@@ -91,6 +91,12 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
   margin-bottom: 10px;
 }
 
+#char-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
 .badge {
   background: var(--accent);
   color: #000;
