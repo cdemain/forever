@@ -16,10 +16,23 @@ const GATHERING_PROFS = ["Herbalism", "Mining", "Skinning"];
 const ALL_PROFS = [...CRAFTING_PROFS, ...GATHERING_PROFS];
 
 const ROLE_CLASSES = {
+  "No Preference": ["Hunter", "Druid", "Paladin", "Warrior", "Mage", "Priest", "Shaman", "Warlock", "Rogue"],
   Tank: ["Warrior", "Paladin", "Druid"],
   "Melee DPS": ["Rogue", "Warrior", "Paladin", "Druid", "Shaman"],
   "Ranged DPS": ["Hunter", "Mage", "Warlock", "Shaman", "Druid"],
   Healing: ["Priest", "Paladin", "Druid", "Shaman"]
+};
+
+const PROF_SUGGESTIONS = {
+  Hunter: ["Skinning", "Leatherworking"],
+  Mage: ["Herbalism", "Alchemy"],
+  Warlock: ["Herbalism", "Alchemy"],
+  Rogue: ["Skinning", "Leatherworking"],
+  Warrior: ["Mining", "Blacksmithing"],
+  Paladin: ["Mining", "Blacksmithing"],
+  Druid: ["Herbalism", "Alchemy"],
+  Priest: ["Herbalism", "Alchemy"],
+  Shaman: ["Mining", "Blacksmithing"]
 };
 
 const STORAGE_KEY = "wowForeverLegacyPlan";
@@ -91,12 +104,22 @@ function updateCharClassDropdown() {
   const select = document.getElementById("char-class");
   const valid = getValidClasses(race);
   select.innerHTML = valid.map(c => `<option value="${c}">${c}</option>`).join("");
+  suggestProfessions();
 }
 
 function populateProfDropdowns() {
   const options = '<option value="">None</option>' + ALL_PROFS.map(p => `<option value="${p}">${p}</option>`).join("");
   document.getElementById("char-prof1").innerHTML = options;
   document.getElementById("char-prof2").innerHTML = options;
+}
+
+function suggestProfessions() {
+  const cls = document.getElementById("char-class").value;
+  const suggestions = PROF_SUGGESTIONS[cls] || [];
+  const prof1 = document.getElementById("char-prof1");
+  const prof2 = document.getElementById("char-prof2");
+  if (suggestions[0]) prof1.value = suggestions[0];
+  if (suggestions[1]) prof2.value = suggestions[1];
 }
 
 function showCharForm(idx = -1) {
@@ -140,6 +163,7 @@ function showCharForm(idx = -1) {
       }
       updateCharClassDropdown();
       document.getElementById("char-class").value = state.preferredClass;
+      suggestProfessions();
     }
   }
 }
@@ -204,7 +228,7 @@ function renderDuo() {
   if (!fields) return;
 
   const p = state.duoPartner || { class: "", gathering: "" };
-  const classes = state.playstyle && ROLE_CLASSES[state.playstyle] ? ROLE_CLASSES[state.playstyle] : Object.values(ROLE_CLASSES).flat();
+  const classes = state.playstyle && ROLE_CLASSES[state.playstyle] ? ROLE_CLASSES[state.playstyle] : ROLE_CLASSES["No Preference"];
 
   fields.innerHTML = `
     <label for="partner-class">Partner preferred class</label>
@@ -246,13 +270,18 @@ function getCoveredCrafting() {
 
 function getRecommendations() {
   const lines = [];
-  const playstyle = state.playstyle || "any role";
+  const playstyle = state.playstyle || "No Preference";
   lines.push(`<strong>Preferred role:</strong> ${playstyle}`);
   if (state.preferredClass) lines.push(`<strong>Preferred class:</strong> ${state.preferredClass}`);
   if (state.faction) lines.push(`<strong>Faction:</strong> ${state.faction}`);
 
   if (state.playstyle && ROLE_CLASSES[state.playstyle]) {
-    lines.push(`Suitable classes: ${ROLE_CLASSES[state.playstyle].join(", ")}`);
+    const top = ROLE_CLASSES[state.playstyle].slice(0, 3).join(", ");
+    lines.push(`Top recommended classes: ${top}`);
+  }
+
+  if (state.preferredClass && PROF_SUGGESTIONS[state.preferredClass]) {
+    lines.push(`Suggested professions for ${state.preferredClass}: ${PROF_SUGGESTIONS[state.preferredClass].join(" + ")}`);
   }
 
   if (state.characters.length > 0) {
@@ -395,6 +424,9 @@ function bindEvents() {
 
   const raceSelect = document.getElementById("char-race");
   if (raceSelect) raceSelect.onchange = updateCharClassDropdown;
+
+  const classInForm = document.getElementById("char-class");
+  if (classInForm) classInForm.onchange = suggestProfessions;
 
   const resetBtn = document.getElementById("reset-all");
   if (resetBtn) resetBtn.onclick = () => {

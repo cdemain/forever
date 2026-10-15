@@ -92,10 +92,21 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
 }
 
 #char-form {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+  margin: 16px 0;
+  padding: 16px;
+  background: #111;
+  border-radius: 10px;
+  border: 1px solid var(--border);
 }
+
+.form-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.form-fields > div { min-width: 0; }
 
 .badge {
   background: var(--accent);
@@ -122,6 +133,7 @@ input, select, button, textarea {
   background: #111;
   color: var(--text);
   font-size: 14px;
+  width: 100%;
 }
 
 textarea { width: 100%; margin-top: 6px; }
@@ -133,6 +145,7 @@ button {
   cursor: pointer;
   font-weight: 600;
   margin: 6px 6px 6px 0;
+  width: auto;
 }
 
 button.secondary { background: #333; color: var(--text); }
@@ -155,4 +168,5 @@ footer {
 
 @media (max-width: 600px) {
   .points-row { grid-template-columns: 1fr; }
+  .form-fields { grid-template-columns: 1fr; }
 }

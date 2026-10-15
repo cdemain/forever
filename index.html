@@ -68,6 +68,7 @@
       <label for="playstyle">Preferred role</label>
       <select id="playstyle">
         <option value="">-- Select role --</option>
+        <option value="No Preference">No Preference</option>
         <option value="Tank">Tank</option>
         <option value="Melee DPS">Melee DPS</option>
         <option value="Ranged DPS">Ranged DPS</option>
@@ -82,49 +83,57 @@
 
     <div class="card">
       <h2>Your Characters</h2>
-      <div id="roster"></div>
       <button id="add-char">+ Add Character</button>
       <button class="secondary" id="reset-all">Reset All Data</button>
 
-      <div id="char-form" class="hidden">
+      <div id="char-form" class="hidden form-grid">
         <h3 id="form-title">Add Character</h3>
-        <label for="char-name">Name</label>
-        <input type="text" id="char-name" placeholder="Character name">
-
-        <label for="char-race">Race</label>
-        <select id="char-race"></select>
-
-        <label for="char-class">Class</label>
-        <select id="char-class"></select>
-
-        <label for="char-level">Level</label>
-        <input type="number" id="char-level" min="1" max="60" value="1">
-
-        <label class="checkbox-label">
-          <input type="checkbox" id="char-main"> Main
-        </label>
-
-        <label for="char-prof1">Profession 1</label>
-        <select id="char-prof1">
-          <option value="">None</option>
-        </select>
-
-        <label for="char-prof1-level">Skill</label>
-        <input type="number" id="char-prof1-level" min="0" max="300" value="0">
-
-        <label for="char-prof2">Profession 2</label>
-        <select id="char-prof2">
-          <option value="">None</option>
-        </select>
-
-        <label for="char-prof2-level">Skill</label>
-        <input type="number" id="char-prof2-level" min="0" max="300" value="0">
-
+        <div class="form-fields">
+          <div>
+            <label for="char-name">Name</label>
+            <input type="text" id="char-name" placeholder="Character name">
+          </div>
+          <div>
+            <label for="char-race">Race</label>
+            <select id="char-race"></select>
+          </div>
+          <div>
+            <label for="char-class">Class</label>
+            <select id="char-class"></select>
+          </div>
+          <div>
+            <label for="char-level">Level</label>
+            <input type="number" id="char-level" min="1" max="60" value="1">
+          </div>
+          <div>
+            <label class="checkbox-label">
+              <input type="checkbox" id="char-main"> Main
+            </label>
+          </div>
+          <div>
+            <label for="char-prof1">Profession 1</label>
+            <select id="char-prof1"><option value="">None</option></select>
+          </div>
+          <div>
+            <label for="char-prof1-level">Skill</label>
+            <input type="number" id="char-prof1-level" min="0" max="300" value="0">
+          </div>
+          <div>
+            <label for="char-prof2">Profession 2</label>
+            <select id="char-prof2"><option value="">None</option></select>
+          </div>
+          <div>
+            <label for="char-prof2-level">Skill</label>
+            <input type="number" id="char-prof2-level" min="0" max="300" value="0">
+          </div>
+        </div>
         <div class="actions">
           <button id="save-char">Save</button>
           <button id="cancel-char" class="secondary">Cancel</button>
         </div>
       </div>
+
+      <div id="roster"></div>
     </div>
 
     <div class="card hidden" id="duo-section">
