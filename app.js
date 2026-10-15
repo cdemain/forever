@@ -35,6 +35,14 @@ const PROF_SUGGESTIONS = {
   Shaman: ["Mining", "Blacksmithing"]
 };
 
+const COMPLEMENTARY_ROLES = {
+  Tank: ["Ranged DPS", "Healing"],
+  "Melee DPS": ["Ranged DPS", "Healing", "Tank"],
+  "Ranged DPS": ["Tank", "Healing", "Melee DPS"],
+  Healing: ["Tank", "Melee DPS", "Ranged DPS"],
+  "No Preference": ["Tank", "Ranged DPS", "Healing"]
+};
+
 const STORAGE_KEY = "wowForeverLegacyPlan";
 
 let state = {
@@ -72,6 +80,10 @@ function getStartingArea(race) {
 function getRacesForFaction(faction) {
   if (!faction || faction === "Both") return Object.keys(RACE_CLASS_MATRIX);
   return Object.keys(RACE_CLASS_MATRIX).filter(r => RACE_CLASS_MATRIX[r].faction === faction);
+}
+
+function getGathering(char) {
+  return [char.prof1, char.prof2].find(p => GATHERING_PROFS.includes(p)) || "";
 }
 
 function updateClassDropdown() {
@@ -173,6 +185,38 @@ function hideCharForm() {
   editingIndex = -1;
 }
 
+function getComplementaryRecommendations(char) {
+  const myGather = getGathering(char);
+  const myStart = getStartingArea(char.race);
+  const myFaction = char.faction;
+  const complementaryRoles = COMPLEMENTARY_ROLES[state.playstyle] || COMPLEMENTARY_ROLES["No Preference"];
+
+  const suggestions = [];
+  const races = getRacesForFaction(myFaction);
+
+  complementaryRoles.forEach(role => {
+    const classes = ROLE_CLASSES[role] || [];
+    classes.forEach(cls => {
+      races.forEach(race => {
+        if (!getValidClasses(race).includes(cls)) return;
+        if (getStartingArea(race) !== myStart) return;
+        const partnerGather = (PROF_SUGGESTIONS[cls] || []).find(p => GATHERING_PROFS.includes(p));
+        if (partnerGather && partnerGather === myGather) return;
+        suggestions.push({
+          role,
+          class: cls,
+          race,
+          start: myStart,
+          gathering: partnerGather || "none",
+          crafting: (PROF_SUGGESTIONS[cls] || []).find(p => CRAFTING_PROFS.includes(p)) || ""
+        });
+      });
+    });
+  });
+
+  return suggestions.slice(0, 4);
+}
+
 function renderRoster() {
   const container = document.getElementById("roster");
   if (!container) return;
@@ -218,45 +262,28 @@ function renderRoster() {
   });
 }
 
-function renderDuo() {
-  const section = document.getElementById("duo-section");
-  if (!section) return;
-  section.classList.toggle("hidden", !state.duoMode);
-  if (!state.duoMode) return;
+function renderDuoRecommendations() {
+  const container = document.getElementById("duo-recommendations");
+  if (!container) return;
+  if (!state.duoMode || state.characters.length === 0) {
+    container.innerHTML = "<p class='muted'>Add characters to see per-character duo recommendations.</p>";
+    return;
+  }
 
-  const fields = document.getElementById("duo-partner-fields");
-  if (!fields) return;
-
-  const p = state.duoPartner || { class: "", gathering: "" };
-  const classes = state.playstyle && ROLE_CLASSES[state.playstyle] ? ROLE_CLASSES[state.playstyle] : ROLE_CLASSES["No Preference"];
-
-  fields.innerHTML = `
-    <label for="partner-class">Partner preferred class</label>
-    <select id="partner-class">
-      <option value="">Select</option>
-      ${[...new Set(classes)].map(c => `<option value="${c}" ${p.class === c ? "selected" : ""}>${c}</option>`).join("")}
-    </select>
-    <label for="partner-gather">Partner gathering profession</label>
-    <select id="partner-gather">
-      <option value="">Select</option>
-      ${GATHERING_PROFS.map(g => `<option value="${g}" ${p.gathering === g ? "selected" : ""}>${g}</option>`).join("")}
-    </select>
-  `;
-
-  const update = () => {
-    state.duoPartner = {
-      class: document.getElementById("partner-class").value,
-      gathering: document.getElementById("partner-gather").value,
-      faction: state.faction === "Both" ? "Alliance" : (state.faction || "Alliance")
-    };
-    saveState();
-    renderRecommendations();
-  };
-
-  ["partner-class", "partner-gather"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.onchange = update;
+  let html = "";
+  state.characters.forEach(char => {
+    const recs = getComplementaryRecommendations(char);
+    html += `<div class="char-card"><strong>${char.name || "Unnamed"} (${char.class})</strong><br>`;
+    if (recs.length === 0) {
+      html += `<span class="muted">No strong complementary matches found for shared start zone.</span>`;
+    } else {
+      recs.forEach(r => {
+        html += `<div class="muted small">${r.role}: ${r.race} ${r.class} — ${r.gathering} / ${r.crafting || "crafting"} (starts ${r.start})</div>`;
+      });
+    }
+    html += `</div>`;
   });
+  container.innerHTML = html;
 }
 
 function getCoveredCrafting() {
@@ -290,9 +317,8 @@ function getRecommendations() {
     lines.push(`Starting area: ${getStartingArea(main.race)}`);
   }
 
-  if (state.duoMode && state.duoPartner) {
-    lines.push(`<strong>Duo partner:</strong> ${state.duoPartner.class || "?"} — gathering: ${state.duoPartner.gathering || "none"}`);
-    lines.push(`<strong>Starting area tip:</strong> Prefer shared zones for the same faction.`);
+  if (state.duoMode) {
+    lines.push(`<strong>Duo mode:</strong> Recommendations are generated per character for complementary role, shared starting zone, and non-overlapping gathering.`);
   }
 
   const covered = getCoveredCrafting();
@@ -300,24 +326,17 @@ function getRecommendations() {
   lines.push(`<strong>Crafting coverage:</strong> ${covered.size}/6`);
   if (missing.length) {
     lines.push(`Still need: ${missing.join(", ")}`);
-    lines.push(`Suggestion: put ${missing[0]} on your next alt.`);
+    lines.push(`Suggestion: put ${missing[0]} on a later alt.`);
   } else {
     lines.push("All six crafting professions covered.");
-  }
-
-  if (state.duoMode && state.duoPartner?.gathering) {
-    const userGathers = state.characters.flatMap(c => [c.prof1, c.prof2]).filter(p => GATHERING_PROFS.includes(p));
-    if (userGathers.includes(state.duoPartner.gathering)) {
-      lines.push(`<span class="warning">Your characters share ${state.duoPartner.gathering} with your partner. Pick a different gathering profession.</span>`);
-    }
   }
 
   if (state.characters.some(c => c.level >= 20)) {
     lines.push("Character at or above 20. Consider parking in an inn for rested XP and rotating an alt.");
   }
 
-  let priority = "Cover remaining crafting professions, invest in Working Overtime, and rotate rested XP by logging out in inns.";
-  if (state.duoMode) priority += " Keep gathering professions non-overlapping with your partner.";
+  let priority = "Prioritize your main for Legacy Points, then cover remaining crafting professions on alts.";
+  if (state.duoMode) priority += " Pair characters by complementary role and shared starting zone first.";
   lines.push(`<strong>Next priority:</strong> ${priority}`);
 
   return lines.map(l => `<li>${l}</li>`).join("");
@@ -348,7 +367,9 @@ function renderAll() {
   if (classSel && state.preferredClass) classSel.value = state.preferredClass;
 
   renderRoster();
-  renderDuo();
+  const duoSection = document.getElementById("duo-section");
+  if (duoSection) duoSection.classList.toggle("hidden", !state.duoMode);
+  renderDuoRecommendations();
   renderRecommendations();
 }
 
@@ -441,11 +462,18 @@ function bindEvents() {
   const exportBtn = document.getElementById("export-duo");
   if (exportBtn) exportBtn.onclick = () => {
     const data = {
-      preferredRole: state.playstyle || "",
-      preferredClass: state.preferredClass || "",
-      gathering: state.characters.find(c => GATHERING_PROFS.includes(c.prof1))?.prof1 ||
-                 state.characters.find(c => GATHERING_PROFS.includes(c.prof2))?.prof2 || "",
-      faction: state.faction || "Alliance"
+      myCharacters: state.characters.map(c => ({
+        name: c.name,
+        race: c.race,
+        class: c.class,
+        gathering: getGathering(c),
+        start: getStartingArea(c.race)
+      })),
+      recommendations: state.characters.map(c => ({
+        for: c.name || c.class,
+        partners: getComplementaryRecommendations(c)
+      })),
+      faction: state.faction
     };
     const text = JSON.stringify(data, null, 2);
     const out = document.getElementById("export-output");
@@ -459,9 +487,12 @@ function bindEvents() {
     if (!input) return;
     try {
       const data = JSON.parse(input.value);
-      state.duoPartner = { class: data.preferredClass || "", gathering: data.gathering || "", faction: data.faction || state.faction };
+      if (data.myCharacters) {
+        state.duoPartner = data;
+      }
       saveState();
       renderAll();
+      alert("Imported. Recommendations for your characters are shown above.");
     } catch (e) {
       alert("Invalid JSON.");
     }
